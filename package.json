@@ -6,22 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:email": "node scripts/test-email.js",
+    "seed:database": "node scripts/seed-database.js",
+    "seed:prod": "NODE_ENV=production node scripts/seed-database.js",
+    "seed:prod:force": "NODE_ENV=production FORCE_RESET=true node scripts/seed-database.js",
+    "test:connection": "node -e \"require('dotenv').config({ path: '.env.local' }); const { MongoClient } = require('mongodb'); const client = new MongoClient(process.env.MONGODB_URI); client.connect().then(() => { console.log('✅ Connected to MongoDB'); client.close(); }).catch(err => { console.error('❌ Connection failed:', err.message); });\""
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
+    "@types/mongodb": "^4.0.6",
+    "@types/nodemailer": "^7.0.2",
+    "lucide-react": "^0.544.0",
+    "mongodb": "^6.20.0",
+    "next": "15.5.4",
+    "nodemailer": "^7.0.9",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

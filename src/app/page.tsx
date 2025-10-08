@@ -1,102 +1,246 @@
-import Image from "next/image";
+import Link from 'next/link';
+import Image from 'next/image';
+import { Instagram, Facebook, Twitter, Mail, MapPin, Users } from 'lucide-react';
 
-export default function Home() {
+export default function HomePage() {
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white relative overflow-hidden">
+      {/* Background decorative shapes */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 rounded-full opacity-20 blur-xl" style={{backgroundColor: '#ECC67F'}}></div>
+        <div className="absolute top-40 right-20 w-24 h-24 rounded-full opacity-15 blur-lg" style={{backgroundColor: '#ECC67F'}}></div>
+        <div className="absolute bottom-40 left-1/4 w-40 h-40 rounded-full opacity-25 blur-2xl" style={{backgroundColor: '#ECC67F'}}></div>
+        <div className="absolute bottom-20 right-1/3 w-28 h-28 rounded-full opacity-20 blur-xl" style={{backgroundColor: '#ECC67F'}}></div>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      {/* Header */}
+      <header className="relative z-10 bg-transparent">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Image
+                src="/images/d79logo.png"
+                alt="District 79 Logo"
+                width={60}
+                height={60}
+                className="object-contain"
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <Image
+                src="/images/nycpublicshools.png"
+                alt="NYC Public Schools Logo"
+                width={120}
+                height={40}
+                className="object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Date and Title */}
+        <div className="text-center mb-12">
+          <h1 className="text-6xl md:text-7xl font-bold mb-8 leading-tight" style={{color: '#ECC67F'}}>
+            DISTRICT 79<br />
+            FALL CRAWLS
+          </h1>
+        </div>
+
+        {/* Event Dates and Times */}
+        <div className="text-center mb-16 space-y-8">
+          {/* Tuesday Event */}
+          <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
+            <h2 className="text-3xl font-bold mb-4" style={{color: '#ECC67F'}}>TUESDAY, OCTOBER 28</h2>
+            <p className="text-xl text-gray-800 mb-2">10 AM - 12 PM</p>
+            <p className="text-lg text-gray-700">MANHATTAN, QUEENS, OR THE BRONX</p>
+          </div>
+
+          {/* Thursday Event */}
+          <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
+            <h2 className="text-3xl font-bold mb-4" style={{color: '#ECC67F'}}>THURSDAY OCTOBER 30</h2>
+            <p className="text-xl text-gray-800 mb-2">10 AM - 12 PM</p>
+            <p className="text-lg text-gray-700">STATEN ISLAND OR BROOKLYN</p>
+          </div>
+        </div>
+
+        {/* Call to Action Text */}
+        <div className="text-center mb-16 space-y-4">
+          <p className="text-lg text-gray-800">
+            Join us for an information session and a site visit to a Referral Center and D79 site
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold" style={{color: '#ECC67F'}}>
+            COME VISIT DISTRICT 79!
+          </h2>
+          <p className="text-lg text-gray-800">
+            LEARN MORE ABOUT OPPORTUNITIES WITHIN D79 FOR YOUR FAMILIES AND STUDENTS!
+          </p>
+          <p className="text-lg text-gray-800">
+            MEET STAFF, MAKE CONNECTIONS!
+          </p>
+          <p className="text-xl font-bold" style={{color: '#ECC67F'}}>
+            OPEN TO NYCPS EMPLOYEES!
+          </p>
+        </div>
+
+        {/* Current Availability Section */}
+        <div className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8" style={{color: '#ECC67F'}}>
+            Current Availability
+          </h2>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {/* Tuesday Locations */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                  <span className="text-sm font-semibold uppercase">Tuesday, Oct 28</span>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <Users className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-bold">20 / 20</span>
+                </div>
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Manhattan Referral Center</h3>
+              <p className="text-sm text-gray-600 mb-3">269 West 15th Street, Manhattan, NY 10011</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Available:</span>
+                <span className="text-sm font-bold text-green-600">20 spots left</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                  <span className="text-sm font-semibold uppercase">Tuesday, Oct 28</span>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <Users className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-bold">20 / 20</span>
+                </div>
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Queens Alternative School</h3>
+              <p className="text-sm text-gray-600 mb-3">162-02 Hillside Avenue, Queens, NY 11372</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Available:</span>
+                <span className="text-sm font-bold text-green-600">20 spots left</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                  <span className="text-sm font-semibold uppercase">Tuesday, Oct 28</span>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <Users className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-bold">20 / 20</span>
+                </div>
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Bronx D79 Center</h3>
+              <p className="text-sm text-gray-600 mb-3">1010 Reverend James A. Polite Avenue, Bronx, NY 10462</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Available:</span>
+                <span className="text-sm font-bold text-green-600">20 spots left</span>
+              </div>
+            </div>
+
+            {/* Thursday Locations */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                  <span className="text-sm font-semibold uppercase">Thursday, Oct 30</span>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <Users className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-bold">20 / 20</span>
+                </div>
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Staten Island Learning Center</h3>
+              <p className="text-sm text-gray-600 mb-3">365 Bay Street, Staten Island, NY 10301</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Available:</span>
+                <span className="text-sm font-bold text-green-600">20 spots left</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                  <span className="text-sm font-semibold uppercase">Thursday, Oct 30</span>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <Users className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-bold">20 / 20</span>
+                </div>
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Brooklyn Alternative Programs</h3>
+              <p className="text-sm text-gray-600 mb-3">67-69 Schermerhorn Street, Brooklyn, NY 11207</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Available:</span>
+                <span className="text-sm font-bold text-green-600">20 spots left</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Registration Button */}
+        <div className="text-center mb-16">
+          <Link
+            href="/register"
+            className="inline-block text-white px-12 py-4 rounded-2xl text-xl font-bold transition-colors shadow-lg hover:opacity-90"
+            style={{backgroundColor: '#ECC67F'}}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            CLICK ON THE BOX BELOW TO SEE AVAILABILITY AND RSVP
+          </Link>
+        </div>
+
+        {/* Social Media Section */}
+        <div className="text-center mb-16">
+          <h3 className="text-xl font-bold mb-8" style={{color: '#ECC67F'}}>Follow Us On Social Media</h3>
+          <div className="flex justify-center space-x-12">
+            <div className="text-center">
+              <Instagram className="h-8 w-8 mx-auto mb-2" style={{color: '#ECC67F'}} />
+              <p className="text-sm text-gray-800">Instagram</p>
+            </div>
+            <div className="text-center">
+              <Facebook className="h-8 w-8 mx-auto mb-2" style={{color: '#ECC67F'}} />
+              <p className="text-sm text-gray-800">Facebook</p>
+            </div>
+            <div className="text-center">
+              <Twitter className="h-8 w-8 mx-auto mb-2" style={{color: '#ECC67F'}} />
+              <p className="text-sm text-gray-800">Twitter</p>
+            </div>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* Footer */}
+      <footer className="relative z-10 bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div className="text-sm text-gray-600">
+              © 2025 District 79. All rights reserved.
+            </div>
+            <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 text-sm text-gray-600">
+              <a href="#" className="hover:opacity-75 transition-opacity">Adult Education</a>
+              <a href="#" className="hover:opacity-75 transition-opacity">NYC Schools</a>
+              <a href="#" className="flex items-center hover:opacity-75 transition-opacity">
+                <Mail className="h-4 w-4 mr-1" />
+                Contact Webmaster
+              </a>
+              <p>Having issues? Contact Javier Jaramillo at jjaramillo7@schools.nyc.gov</p>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
