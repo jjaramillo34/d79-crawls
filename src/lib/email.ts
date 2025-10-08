@@ -41,7 +41,6 @@ export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
       };
 
       const [response] = await sgMail.send(msg);
-      console.log('Email sent via SendGrid:', response.statusCode);
       return { success: true, messageId: response.headers['x-message-id'] };
     }
     // Otherwise use SMTP (nodemailer)
@@ -59,7 +58,6 @@ export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent via SMTP: %s', info.messageId);
       return { success: true, messageId: info.messageId };
     }
   } catch (error) {

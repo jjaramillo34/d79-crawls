@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
       firstName,
       lastName,
       crawlDate,
-      crawlLocation: locationDetails?.name || crawlLocation,
+      description: 'Join us for an information session and a site visit to a Referral Center and D79 site',
+      crawlLocationName: locationDetails?.name || crawlLocation,
       crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
       time: '10:00 AM - 12:00 PM'
     });
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest) {
         school,
         crawlDate,
         crawlLocation: locationDetails?.name || crawlLocation,
+        crawlLocationName: locationDetails?.name || crawlLocation,
+        description: 'Join us for an information session and a site visit to a Referral Center and D79 site',
         crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
         availableSpots
       });

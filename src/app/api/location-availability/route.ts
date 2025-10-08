@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
     // Create a map of location ID to event date
     const locationToEventDate = new Map();
     events.forEach(event => {
-      event.locationIds.forEach((locationId: any) => {
+      event.locationIds.forEach((locationId: ObjectId) => {
         const eventDate = event.date === '2024-10-28' ? 'tuesday' : 'thursday';
         // Convert ObjectId to string for comparison
         const locationIdStr = locationId.toString();
