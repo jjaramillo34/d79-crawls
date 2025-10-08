@@ -138,8 +138,8 @@ export default function RegisterPage() {
               <Image
                 src="/images/d79logo.png"
                 alt="District 79 Logo"
-                width={50}
-                height={50}
+                width={100}
+                height={70}
                 className="object-contain"
               />
               <h1 className="text-xl font-bold text-gray-900">Register for D79 Crawls</h1>
