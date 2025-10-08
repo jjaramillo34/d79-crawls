@@ -78,7 +78,9 @@ export const getRegistrationConfirmationEmail = (data: {
   time: string;
 }) => {
   const dateDisplay = data.crawlDate === 'tuesday' ? 'Tuesday, October 28, 2024' : 'Thursday, October 30, 2024';
-  const locationDisplay = data.crawlLocationName;
+  const locationDisplay = data.crawlLocationAddress 
+    ? `${data.crawlLocationName} - ${data.crawlLocationAddress}`
+    : data.crawlLocationName;
   const descriptionDisplay = data.description;
 
   return `
@@ -208,7 +210,9 @@ export const getAdminNotificationEmail = (data: {
   availableSpots: number;
 }) => {
   const dateDisplay = data.crawlDate === 'tuesday' ? 'Tuesday, October 28, 2024' : 'Thursday, October 30, 2024';
-  const locationDisplay = data.crawlLocation;
+  const locationDisplay = data.crawlLocationAddress 
+    ? `${data.crawlLocationName} - ${data.crawlLocationAddress}`
+    : data.crawlLocationName;
   const descriptionDisplay = data.description;
   return `
     <!DOCTYPE html>

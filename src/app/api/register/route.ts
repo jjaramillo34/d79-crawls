@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
 import { Registration } from '@/types/registration';
 import { sendEmail, getRegistrationConfirmationEmail, getAdminNotificationEmail } from '@/lib/email';
+import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Get location details from database
-    const locationDetails = await db.collection('eventLocations').findOne({ _id: crawlLocation });
+    const locationDetails = await db.collection('eventLocations').findOne({ _id: new ObjectId(crawlLocation) });
     
     // Create registration
     const registration: Omit<Registration, '_id'> = {
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       lastName,
       crawlDate,
       description: 'Join us for an information session and a site visit to a Referral Center and D79 site',
-      crawlLocationName: locationDetails?.name || crawlLocation,
+      crawlLocationName: locationDetails?.name || 'Selected Location',
       crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
       time: '10:00 AM - 12:00 PM'
     });
@@ -91,8 +92,8 @@ export async function POST(request: NextRequest) {
         email,
         school,
         crawlDate,
-        crawlLocation: locationDetails?.name || crawlLocation,
-        crawlLocationName: locationDetails?.name || crawlLocation,
+        crawlLocation: locationDetails?.name || 'Selected Location',
+        crawlLocationName: locationDetails?.name || 'Selected Location',
         description: 'Join us for an information session and a site visit to a Referral Center and D79 site',
         crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
         availableSpots
