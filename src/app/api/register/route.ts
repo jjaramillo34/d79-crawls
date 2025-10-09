@@ -36,17 +36,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check availability for the selected date
-    const registrationsForDate = await db.collection('registrations').countDocuments({ crawlDate });
-    if (registrationsForDate >= 20) {
+    // Get location details from database
+    const locationDetails = await db.collection('eventLocations').findOne({ _id: new ObjectId(crawlLocation) });
+    const maxCapacity = locationDetails?.maxCapacity || 20;
+    
+    // Check availability for the selected location
+    const registrationsForLocation = await db.collection('registrations').countDocuments({ crawlLocation });
+    if (registrationsForLocation >= maxCapacity) {
       return NextResponse.json(
-        { error: 'No spots available for this date' },
+        { error: 'No spots available for this location' },
         { status: 400 }
       );
     }
-    
-    // Get location details from database
-    const locationDetails = await db.collection('eventLocations').findOne({ _id: new ObjectId(crawlLocation) });
     
     // Create registration
     const registration: Omit<Registration, '_id'> = {
@@ -63,9 +64,11 @@ export async function POST(request: NextRequest) {
     
     const result = await db.collection('registrations').insertOne(registration);
     
-    // Calculate remaining spots
-    const updatedRegistrationsForDate = await db.collection('registrations').countDocuments({ crawlDate });
-    const availableSpots = 20 - updatedRegistrationsForDate;
+    // Calculate remaining spots for this specific location
+    const updatedRegistrationsForLocation = await db.collection('registrations').countDocuments({ 
+      crawlLocation 
+    });
+    const availableSpots = maxCapacity - updatedRegistrationsForLocation;
     
     // Send confirmation email to registrant
     const confirmationEmail = getRegistrationConfirmationEmail({

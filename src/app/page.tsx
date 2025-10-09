@@ -2,7 +2,83 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Instagram, Facebook, Twitter, Mail, MapPin, Users } from 'lucide-react';
 
-export default function HomePage() {
+interface LocationAvailability {
+  _id: string;
+  name: string;
+  address: string;
+  eventDate: string;
+  availableSpots: number;
+  totalSpots: number;
+  isAvailable: boolean;
+}
+
+async function getAvailability(): Promise<LocationAvailability[]> {
+  try {
+    // Import the API function directly instead of using fetch
+    const { getDatabase } = await import('@/lib/mongodb');
+    const { ObjectId } = await import('mongodb');
+    
+    const db = await getDatabase();
+    
+    // Get all events with their locations
+    const events = await db.collection('events').find({ isActive: true }).toArray();
+    
+    // Get all registrations
+    const registrations = await db.collection('registrations').find({}).toArray();
+    
+    // Create a map of location ID to event date
+    const locationToEventDate = new Map();
+    events.forEach(event => {
+      event.locationIds.forEach((locationId: any) => {
+        const eventDate = event.date === '2024-10-28' ? 'tuesday' : 'thursday';
+        // Convert ObjectId to string for comparison
+        const locationIdStr = locationId.toString();
+        locationToEventDate.set(locationIdStr, eventDate);
+      });
+    });
+    
+    // Get all event locations
+    const locations = await db.collection('eventLocations').find({}).toArray();
+    
+    // Calculate availability for each location
+    const locationAvailability = locations.map(location => {
+      const registeredCount = registrations.filter(reg => 
+        reg.crawlLocation === location._id.toString()
+      ).length;
+      
+      const maxCapacity = location.maxCapacity || 20;
+      const availableSpots = Math.max(0, maxCapacity - registeredCount);
+      const isAvailable = availableSpots > 0;
+      const eventDate = locationToEventDate.get(location._id.toString()) || 'unknown';
+      
+      return {
+        _id: location._id,
+        name: location.name,
+        address: location.address,
+        eventDate,
+        availableSpots,
+        totalSpots: maxCapacity,
+        isAvailable
+      };
+    });
+    
+    // Sort by event date, then by name
+    locationAvailability.sort((a, b) => {
+      if (a.eventDate !== b.eventDate) {
+        return a.eventDate === 'tuesday' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    
+    return locationAvailability;
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const availability = await getAvailability();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white relative overflow-hidden">
@@ -22,8 +98,8 @@ export default function HomePage() {
               <Image
                 src="/images/d79logo.png"
                 alt="District 79 Logo"
-                width={60}
-                height={60}
+                width={200}
+                height={140}
                 className="object-contain"
               />
             </div>
@@ -93,102 +169,34 @@ export default function HomePage() {
           </h2>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {/* Tuesday Locations */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="text-sm font-semibold uppercase">Tuesday, Oct 28</span>
+            {availability.map((location) => (
+              <div 
+                key={location._id} 
+                className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" 
+                style={{borderColor: '#ECC67F'}}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center">
+                    <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                    <span className="text-sm font-semibold uppercase">
+                      {location.eventDate === 'tuesday' ? 'Tuesday, Oct 28' : 'Thursday, Oct 30'}
+                    </span>
+                  </div>
+                  <div className={`flex items-center ${location.availableSpots > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <Users className="h-4 w-4 mr-1" />
+                    <span className="text-sm font-bold">{location.availableSpots} / {location.totalSpots}</span>
+                  </div>
                 </div>
-                <div className="flex items-center text-green-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="text-sm font-bold">20 / 20</span>
-                </div>
-              </div>
-              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Manhattan Referral Center</h3>
-              <p className="text-sm text-gray-600 mb-3">269 West 15th Street, Manhattan, NY 10011</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Available:</span>
-                <span className="text-sm font-bold text-green-600">20 spots left</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="text-sm font-semibold uppercase">Tuesday, Oct 28</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="text-sm font-bold">20 / 20</span>
+                <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>{location.name}</h3>
+                <p className="text-sm text-gray-600 mb-3">{location.address}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Available:</span>
+                  <span className={`text-sm font-bold ${location.availableSpots > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {location.availableSpots > 0 ? `${location.availableSpots} spots left` : 'FULL'}
+                  </span>
                 </div>
               </div>
-              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Queens Alternative School</h3>
-              <p className="text-sm text-gray-600 mb-3">162-02 Hillside Avenue, Queens, NY 11372</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Available:</span>
-                <span className="text-sm font-bold text-green-600">20 spots left</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="text-sm font-semibold uppercase">Tuesday, Oct 28</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="text-sm font-bold">20 / 20</span>
-                </div>
-              </div>
-              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Bronx D79 Center</h3>
-              <p className="text-sm text-gray-600 mb-3">1010 Reverend James A. Polite Avenue, Bronx, NY 10462</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Available:</span>
-                <span className="text-sm font-bold text-green-600">20 spots left</span>
-              </div>
-            </div>
-
-            {/* Thursday Locations */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="text-sm font-semibold uppercase">Thursday, Oct 30</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="text-sm font-bold">20 / 20</span>
-                </div>
-              </div>
-              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Staten Island Learning Center</h3>
-              <p className="text-sm text-gray-600 mb-3">365 Bay Street, Staten Island, NY 10301</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Available:</span>
-                <span className="text-sm font-bold text-green-600">20 spots left</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 hover:shadow-xl transition-shadow" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="text-sm font-semibold uppercase">Thursday, Oct 30</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="text-sm font-bold">20 / 20</span>
-                </div>
-              </div>
-              <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>Brooklyn Alternative Programs</h3>
-              <p className="text-sm text-gray-600 mb-3">67-69 Schermerhorn Street, Brooklyn, NY 11207</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Available:</span>
-                <span className="text-sm font-bold text-green-600">20 spots left</span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 

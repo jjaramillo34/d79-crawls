@@ -32,7 +32,8 @@ export async function GET() {
         reg.crawlLocation === location._id.toString()
       ).length;
       
-      const availableSpots = Math.max(0, 20 - registeredCount);
+      const maxCapacity = location.maxCapacity || 20;
+      const availableSpots = Math.max(0, maxCapacity - registeredCount);
       const isAvailable = availableSpots > 0;
       const eventDate = locationToEventDate.get(location._id.toString()) || 'unknown';
       
@@ -42,7 +43,7 @@ export async function GET() {
         address: location.address,
         eventDate,
         availableSpots,
-        totalSpots: 20,
+        totalSpots: maxCapacity,
         isAvailable
       };
     });
