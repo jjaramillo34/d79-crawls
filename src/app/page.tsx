@@ -16,7 +16,6 @@ async function getAvailability(): Promise<LocationAvailability[]> {
   try {
     // Import the API function directly instead of using fetch
     const { getDatabase } = await import('@/lib/mongodb');
-    const { ObjectId } = await import('mongodb');
     
     const db = await getDatabase();
     
@@ -29,7 +28,7 @@ async function getAvailability(): Promise<LocationAvailability[]> {
     // Create a map of location ID to event date
     const locationToEventDate = new Map();
     events.forEach(event => {
-      event.locationIds.forEach((locationId: any) => {
+      event.locationIds.forEach((locationId: { toString: () => string }) => {
         const eventDate = event.date === '2024-10-28' ? 'tuesday' : 'thursday';
         // Convert ObjectId to string for comparison
         const locationIdStr = locationId.toString();
@@ -52,7 +51,7 @@ async function getAvailability(): Promise<LocationAvailability[]> {
       const eventDate = locationToEventDate.get(location._id.toString()) || 'unknown';
       
       return {
-        _id: location._id,
+        _id: location._id.toString(),
         name: location.name,
         address: location.address,
         eventDate,
