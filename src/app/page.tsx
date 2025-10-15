@@ -244,9 +244,7 @@ export default async function HomePage() {
                 <Mail className="h-4 w-4 mr-1" />
                 Contact Webmaster
               </a>
-            </div>
-            <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 text-sm text-gray-600">
-              <Link href="mailto:jjaramillo7@schools.nyc.gov" className="text-sm text-gray-600 hover:text-gray-800">Javier Jaramillo</Link>
+              <p>Having issues? Contact Javier Jaramillo at jjaramillo7@schools.nyc.gov</p>
             </div>
           </div>
         </div>
