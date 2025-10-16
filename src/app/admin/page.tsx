@@ -155,6 +155,34 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* All Registrants Summary */}
+        {totalRegistrations > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
+            <h2 className="text-2xl font-bold mb-4" style={{color: '#ECC67F'}}>All Registered Attendees</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {locationStats.flatMap(location => 
+                location.registrations.map((reg, idx) => (
+                  <div key={`${location._id}-${idx}`} className="bg-gray-50 rounded-lg p-4">
+                    <p className="font-bold text-gray-900 mb-1">{reg.name}</p>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <Mail className="h-3 w-3 inline mr-1" />
+                      {reg.email}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <Phone className="h-3 w-3 inline mr-1" />
+                      {reg.phone}
+                    </p>
+                    <p className="text-xs font-semibold mt-2" style={{color: '#ECC67F'}}>
+                      {location.name}
+                    </p>
+                    <p className="text-xs text-gray-500">{location.eventDate}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Location Stats */}
         <div className="space-y-6">
           <h2 className="text-2xl font-bold" style={{color: '#ECC67F'}}>Registrations by Location</h2>
