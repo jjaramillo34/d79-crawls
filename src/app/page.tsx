@@ -10,6 +10,7 @@ interface LocationAvailability {
   availableSpots: number;
   totalSpots: number;
   isAvailable: boolean;
+  description?: string;
 }
 
 async function getAvailability(): Promise<LocationAvailability[]> {
@@ -49,6 +50,7 @@ async function getAvailability(): Promise<LocationAvailability[]> {
       const availableSpots = Math.max(0, maxCapacity - registeredCount);
       const isAvailable = availableSpots > 0;
       const eventDate = locationToEventDate.get(location._id.toString()) || 'unknown';
+      const description = location.description;
       
       return {
         _id: location._id.toString(),
@@ -57,7 +59,8 @@ async function getAvailability(): Promise<LocationAvailability[]> {
         eventDate,
         availableSpots,
         totalSpots: maxCapacity,
-        isAvailable
+        isAvailable,
+        description: location.description
       };
     });
     
@@ -187,10 +190,11 @@ export default async function HomePage() {
                   </div>
                 </div>
                 <h3 className="text-lg font-bold mb-2" style={{color: '#ECC67F'}}>{location.name}</h3>
-                <p className="text-sm text-gray-600 mb-3">{location.address}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Available:</span>
-                  <span className={`text-sm font-bold ${location.availableSpots > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className="text-xs text-gray-600 mb-2">{location.address}</p>
+                <span className="text-xs text-gray-500 mb-2">{location.description || 'No description available'}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500 font-bold mb-2">Available:</span>
+                  <span className={`text-xs font-bold ${location.availableSpots > 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {location.availableSpots > 0 ? `${location.availableSpots} spots left` : 'FULL'}
                   </span>
                 </div>
