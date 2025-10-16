@@ -50,7 +50,6 @@ async function getAvailability(): Promise<LocationAvailability[]> {
       const availableSpots = Math.max(0, maxCapacity - registeredCount);
       const isAvailable = availableSpots > 0;
       const eventDate = locationToEventDate.get(location._id.toString()) || 'unknown';
-      const description = location.description;
       
       return {
         _id: location._id.toString(),

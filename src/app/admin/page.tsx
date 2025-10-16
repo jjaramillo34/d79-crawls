@@ -54,7 +54,7 @@ export default function AdminPage() {
       setIsAuthenticated(true);
       setTotalRegistrations(data.totalRegistrations);
       setLocationStats(data.locationStats);
-    } catch (err) {
+    } catch {
       setError('Failed to authenticate');
     } finally {
       setLoading(false);
@@ -86,7 +86,6 @@ export default function AdminPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none"
-                    style={{focusRingColor: '#ECC67F'}}
                     placeholder="Enter admin password"
                     required
                   />
