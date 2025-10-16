@@ -249,7 +249,8 @@ export default async function HomePage() {
                 <Mail className="h-4 w-4 mr-1" />
                 Contact Webmaster
               </a>
-              <p>Having issues? Contact Javier Jaramillo at jjaramillo7@schools.nyc.gov</p>
+              <p>Having issues? Contact Javier Jaramillo at jjaramillo7@schools.nyc.gov or call (929) 769-1001</p>
+
             </div>
           </div>
         </div>
