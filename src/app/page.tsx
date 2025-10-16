@@ -242,8 +242,9 @@ export default async function HomePage() {
               © 2025 District 79. All rights reserved.
             </div>
             <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 text-sm text-gray-600">
-              <a href="#" className="hover:opacity-75 transition-opacity">Adult Education</a>
-              <a href="#" className="hover:opacity-75 transition-opacity">NYC Schools</a>
+              <a href="https://adulted.nyc" className="hover:opacity-75 transition-opacity">Adult Education</a>
+              <a href="https://schools.nyc.gov" className="hover:opacity-75 transition-opacity">NYC Schools</a>
+              <a href="https://www.d79.nyc/" className="hover:opacity-75 transition-opacity">District 79</a>
               <a href="#" className="flex items-center hover:opacity-75 transition-opacity">
                 <Mail className="h-4 w-4 mr-1" />
                 Contact Webmaster
