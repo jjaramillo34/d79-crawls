@@ -5,10 +5,11 @@ import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar } from 'lucide-
 import Link from 'next/link';
 
 interface Registration {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
-  location: string;
+  school: string;
   registeredAt: string;
 }
 
@@ -163,7 +164,7 @@ export default function AdminPage() {
               {locationStats.flatMap(location => 
                 location.registrations.map((reg, idx) => (
                   <div key={`${location._id}-${idx}`} className="bg-gray-50 rounded-lg p-4">
-                    <p className="font-bold text-gray-900 mb-1">{reg.name}</p>
+                    <p className="font-bold text-gray-900 mb-1">{reg.firstName} {reg.lastName}</p>
                     <p className="text-sm text-gray-600 mb-1">
                       <Mail className="h-3 w-3 inline mr-1" />
                       {reg.email}
@@ -171,6 +172,9 @@ export default function AdminPage() {
                     <p className="text-sm text-gray-600 mb-1">
                       <Phone className="h-3 w-3 inline mr-1" />
                       {reg.phone}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-1">
+                      School: {reg.school}
                     </p>
                     <p className="text-xs font-semibold mt-2" style={{color: '#ECC67F'}}>
                       {location.name}
@@ -234,7 +238,7 @@ export default function AdminPage() {
                             <div key={idx} className="bg-gray-50 rounded-lg p-4">
                               <div className="grid md:grid-cols-2 gap-3">
                                 <div>
-                                  <p className="font-semibold text-gray-900">{reg.name}</p>
+                                  <p className="font-semibold text-gray-900">{reg.firstName} {reg.lastName}</p>
                                   <div className="flex items-center text-sm text-gray-600 mt-1">
                                     <Mail className="h-3 w-3 mr-1" />
                                     <a href={`mailto:${reg.email}`} className="hover:underline">{reg.email}</a>
@@ -245,7 +249,7 @@ export default function AdminPage() {
                                   </div>
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  <p><span className="font-semibold">Current Location:</span> {reg.location}</p>
+                                  <p><span className="font-semibold">School:</span> {reg.school}</p>
                                   <p><span className="font-semibold">Registered:</span> {new Date(reg.registeredAt).toLocaleString()}</p>
                                 </div>
                               </div>

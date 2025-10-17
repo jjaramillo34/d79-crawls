@@ -47,10 +47,11 @@ export async function POST(request: NextRequest) {
         maxCapacity,
         availableSpots: Math.max(0, maxCapacity - regs.length),
         registrations: regs.map(reg => ({
-          name: reg.name,
+          firstName: reg.firstName,
+          lastName: reg.lastName,
           email: reg.email,
           phone: reg.phone,
-          location: reg.currentLocation,
+          school: reg.school,
           registeredAt: reg.createdAt
         }))
       };
