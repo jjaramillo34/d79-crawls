@@ -382,7 +382,7 @@ export default function RegisterPage() {
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Calendar className="h-5 w-5 mr-3" />
-                  <span>October 28 & 30, 2024</span>
+                  <span>October 28 & October 30, 2025</span>
                 </div>
               </div>
               <div className="space-y-3">
