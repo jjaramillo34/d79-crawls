@@ -4,8 +4,28 @@ import 'jspdf-autotable';
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
+    autoTable: (options: AutoTableOptions) => jsPDF;
   }
+}
+
+interface AutoTableOptions {
+  head: string[][];
+  body: (string | number)[][];
+  startY?: number;
+  styles?: {
+    fontSize?: number;
+    cellPadding?: number;
+  };
+  headStyles?: {
+    fillColor?: number[];
+    textColor?: number[];
+    fontStyle?: string;
+  };
+  alternateRowStyles?: {
+    fillColor?: number[];
+  };
+  columnStyles?: Record<number, { cellWidth?: number }>;
+  margin?: { left?: number; right?: number };
 }
 
 interface Registration {
@@ -111,7 +131,7 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
     });
 
     // Update startY for next location
-    startY = (doc as any).lastAutoTable.finalY + 20;
+    startY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
 
     // Add page break if needed (except for last location)
     if (locationIndex < filteredLocations.length - 1 && startY > 250) {
