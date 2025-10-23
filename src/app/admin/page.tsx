@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar } from 'lucide-react';
+import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar, Download, FileText } from 'lucide-react';
 import Link from 'next/link';
+import { downloadParticipantsPDF, downloadSummaryPDF } from '@/lib/pdf-utils';
 
 interface Registration {
   firstName: string;
@@ -136,13 +137,47 @@ export default function AdminPage() {
             <h1 className="text-3xl font-bold mb-2" style={{color: '#ECC67F'}}>Registration Dashboard</h1>
             <p className="text-gray-600">D79 Fall Crawls - Admin Panel</p>
           </div>
-          <Link 
-            href="/" 
-            className="text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-            style={{backgroundColor: '#ECC67F'}}
-          >
-            Back to Home
-          </Link>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => downloadSummaryPDF(locationStats)}
+              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              style={{backgroundColor: '#ECC67F'}}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Summary PDF
+            </button>
+            <button
+              onClick={() => downloadParticipantsPDF(locationStats, 'tuesday')}
+              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              style={{backgroundColor: '#ECC67F'}}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Tuesday PDF
+            </button>
+            <button
+              onClick={() => downloadParticipantsPDF(locationStats, 'thursday')}
+              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              style={{backgroundColor: '#ECC67F'}}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Thursday PDF
+            </button>
+            <button
+              onClick={() => downloadParticipantsPDF(locationStats, 'all')}
+              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              style={{backgroundColor: '#ECC67F'}}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              All Events PDF
+            </button>
+            <Link 
+              href="/" 
+              className="text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              style={{backgroundColor: '#ECC67F'}}
+            >
+              Back to Home
+            </Link>
+          </div>
         </div>
 
         {/* Total Stats */}
@@ -222,13 +257,23 @@ export default function AdminPage() {
 
                 {location.registrationCount > 0 && (
                   <>
-                    <button
-                      onClick={() => setExpandedLocation(expandedLocation === location._id ? null : location._id)}
-                      className="text-sm font-semibold hover:underline mb-4"
-                      style={{color: '#ECC67F'}}
-                    >
-                      {expandedLocation === location._id ? '▼ Hide Registrations' : '▶ Show Registrations'}
-                    </button>
+                    <div className="flex items-center justify-between mb-4">
+                      <button
+                        onClick={() => setExpandedLocation(expandedLocation === location._id ? null : location._id)}
+                        className="text-sm font-semibold hover:underline"
+                        style={{color: '#ECC67F'}}
+                      >
+                        {expandedLocation === location._id ? '▼ Hide Registrations' : '▶ Show Registrations'}
+                      </button>
+                      <button
+                        onClick={() => downloadParticipantsPDF([location], location.eventDate as 'tuesday' | 'thursday')}
+                        className="flex items-center text-xs text-white px-3 py-1 rounded font-semibold hover:opacity-90 transition-opacity"
+                        style={{backgroundColor: '#ECC67F'}}
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Download PDF
+                      </button>
+                    </div>
 
                     {expandedLocation === location._id && (
                       <div className="border-t pt-4">
