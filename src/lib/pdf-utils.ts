@@ -114,10 +114,10 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
         fillColor: [248, 250, 252], // Light gray
       },
       columnStyles: {
-        0: { cellWidth: 25, halign: 'center' }, // #
-        1: { cellWidth: 80 }, // Name
-        2: { cellWidth: 90 }, // Email
-        3: { cellWidth: 80 }, // School
+        0: { cellWidth: 15, halign: 'center' }, // #
+        1: { cellWidth: 50 }, // Name
+        2: { cellWidth: 60 }, // Email
+        3: { cellWidth: 50 }, // School
       },
       margin: { left: 10, right: 10 },
       tableWidth: 'wrap',
@@ -215,12 +215,12 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
       fillColor: [248, 250, 252], // Light gray
     },
     columnStyles: {
-      0: { cellWidth: 20, halign: 'center' }, // #
-      1: { cellWidth: 80 }, // Location
-      2: { cellWidth: 50 }, // Date
-      3: { cellWidth: 30, halign: 'center' }, // Registered
-      4: { cellWidth: 30, halign: 'center' }, // Capacity
-      5: { cellWidth: 30, halign: 'center' }, // Status
+      0: { cellWidth: 15, halign: 'center' }, // #
+      1: { cellWidth: 60 }, // Location
+      2: { cellWidth: 40 }, // Date
+      3: { cellWidth: 25, halign: 'center' }, // Registered
+      4: { cellWidth: 25, halign: 'center' }, // Capacity
+      5: { cellWidth: 25, halign: 'center' }, // Status
     },
     margin: { left: 10, right: 10 },
     tableWidth: 'wrap',
