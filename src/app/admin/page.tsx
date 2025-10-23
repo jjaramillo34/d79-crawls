@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar, Download, FileText } from 'lucide-react';
+import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar, Download, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { downloadParticipantsPDF, downloadSummaryPDF } from '@/lib/pdf-utils';
 
@@ -34,6 +34,9 @@ export default function AdminPage() {
   const [totalRegistrations, setTotalRegistrations] = useState(0);
   const [locationStats, setLocationStats] = useState<LocationStat[]>([]);
   const [expandedLocation, setExpandedLocation] = useState<string | null>(null);
+  const [sendingReminders, setSendingReminders] = useState<{ [key: string]: boolean }>({});
+  const [reminderResults, setReminderResults] = useState<{ [key: string]: { success: boolean; emailsSent?: number; error?: string } | null }>({});
+  const [showReminderPreview, setShowReminderPreview] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +64,59 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSendReminders = async (eventType: 'tuesday' | 'thursday') => {
+    setSendingReminders(prev => ({ ...prev, [eventType]: true }));
+    setReminderResults(prev => ({ ...prev, [eventType]: null }));
+    
+    try {
+      const response = await fetch('/api/admin/send-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          password, 
+          eventType 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reminders');
+      }
+      
+      setReminderResults(prev => ({ ...prev, [eventType]: data }));
+    } catch (error) {
+      console.error('Error sending reminders:', error);
+      setReminderResults(prev => ({ 
+        ...prev, 
+        [eventType]: { 
+          success: false, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        } 
+      }));
+    } finally {
+      setSendingReminders(prev => ({ ...prev, [eventType]: false }));
+    }
+  };
+
+  const getReminderParticipants = (eventType: 'tuesday' | 'thursday') => {
+    return locationStats
+      .filter(location => {
+        if (eventType === 'tuesday') {
+          return location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday';
+        } else {
+          return location.eventDate.includes('Thursday') || location.eventDate === 'thursday';
+        }
+      })
+      .flatMap(location => 
+        location.registrations.map(reg => ({
+          ...reg,
+          locationName: location.name,
+          locationAddress: location.address
+        }))
+      );
   };
 
   if (!isAuthenticated) {
@@ -187,6 +243,139 @@ export default function AdminPage() {
             <div>
               <p className="text-gray-600 text-sm">Total Registrations</p>
               <p className="text-4xl font-bold" style={{color: '#ECC67F'}}>{totalRegistrations}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Reminder Email Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
+          <h2 className="text-2xl font-bold mb-6" style={{color: '#ECC67F'}}>Send Reminder Emails</h2>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Tuesday Reminders */}
+            <div className="border rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Tuesday Event Reminders</h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowReminderPreview(showReminderPreview === 'tuesday' ? null : 'tuesday')}
+                    className="text-sm px-3 py-1 rounded border hover:bg-gray-50"
+                    style={{borderColor: '#ECC67F', color: '#ECC67F'}}
+                  >
+                    {showReminderPreview === 'tuesday' ? 'Hide Preview' : 'Preview Recipients'}
+                  </button>
+                  <button
+                    onClick={() => handleSendReminders('tuesday')}
+                    disabled={sendingReminders.tuesday}
+                    className="flex items-center text-white px-4 py-2 rounded font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                    style={{backgroundColor: '#ECC67F'}}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {sendingReminders.tuesday ? 'Sending...' : 'Send Reminders'}
+                  </button>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-600 mb-3">
+                Send to {getReminderParticipants('tuesday').length} participants for Tuesday, October 28
+              </p>
+              
+              {reminderResults.tuesday && (
+                <div className={`p-3 rounded text-sm ${
+                  reminderResults.tuesday.success 
+                    ? 'bg-green-50 text-green-800 border border-green-200' 
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  {reminderResults.tuesday.success ? (
+                    <div className="flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      <span>Sent {reminderResults.tuesday.emailsSent} emails successfully</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      <span>Error: {reminderResults.tuesday.error}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {showReminderPreview === 'tuesday' && (
+                <div className="mt-4 max-h-40 overflow-y-auto">
+                  <h4 className="text-sm font-semibold mb-2">Recipients:</h4>
+                  <div className="space-y-1">
+                    {getReminderParticipants('tuesday').map((participant, index) => (
+                      <div key={index} className="text-xs text-gray-600 flex justify-between">
+                        <span>{participant.firstName} {participant.lastName}</span>
+                        <span>{participant.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Thursday Reminders */}
+            <div className="border rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Thursday Event Reminders</h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowReminderPreview(showReminderPreview === 'thursday' ? null : 'thursday')}
+                    className="text-sm px-3 py-1 rounded border hover:bg-gray-50"
+                    style={{borderColor: '#ECC67F', color: '#ECC67F'}}
+                  >
+                    {showReminderPreview === 'thursday' ? 'Hide Preview' : 'Preview Recipients'}
+                  </button>
+                  <button
+                    onClick={() => handleSendReminders('thursday')}
+                    disabled={sendingReminders.thursday}
+                    className="flex items-center text-white px-4 py-2 rounded font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                    style={{backgroundColor: '#ECC67F'}}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {sendingReminders.thursday ? 'Sending...' : 'Send Reminders'}
+                  </button>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-600 mb-3">
+                Send to {getReminderParticipants('thursday').length} participants for Thursday, October 30
+              </p>
+              
+              {reminderResults.thursday && (
+                <div className={`p-3 rounded text-sm ${
+                  reminderResults.thursday.success 
+                    ? 'bg-green-50 text-green-800 border border-green-200' 
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  {reminderResults.thursday.success ? (
+                    <div className="flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      <span>Sent {reminderResults.thursday.emailsSent} emails successfully</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      <span>Error: {reminderResults.thursday.error}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {showReminderPreview === 'thursday' && (
+                <div className="mt-4 max-h-40 overflow-y-auto">
+                  <h4 className="text-sm font-semibold mb-2">Recipients:</h4>
+                  <div className="space-y-1">
+                    {getReminderParticipants('thursday').map((participant, index) => (
+                      <div key={index} className="text-xs text-gray-600 flex justify-between">
+                        <span>{participant.firstName} {participant.lastName}</span>
+                        <span>{participant.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

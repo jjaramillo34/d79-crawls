@@ -317,3 +317,132 @@ export const getAdminNotificationEmail = (data: {
     </html>
   `;
 };
+
+// Template for reminder emails
+export const getReminderEmail = (data: {
+  firstName: string;
+  lastName: string;
+  crawlDate: string;
+  crawlLocationName: string;
+  crawlLocationAddress?: string;
+  time: string;
+}) => {
+  const dateDisplay = data.crawlDate === 'tuesday' ? 'Tuesday, October 28, 2024' : 'Thursday, October 30, 2024';
+  const locationDisplay = data.crawlLocationAddress 
+    ? `${data.crawlLocationName} - ${data.crawlLocationAddress}`
+    : data.crawlLocationName;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #ECC67F;
+          color: white;
+          padding: 30px 20px;
+          text-align: center;
+          border-radius: 8px 8px 0 0;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 28px;
+        }
+        .content {
+          background-color: #ffffff;
+          padding: 30px;
+          border: 2px solid #ECC67F;
+          border-top: none;
+          border-radius: 0 0 8px 8px;
+        }
+        .info-box {
+          background-color: #FFF8E7;
+          border-left: 4px solid #ECC67F;
+          padding: 15px;
+          margin: 20px 0;
+        }
+        .info-box p {
+          margin: 8px 0;
+        }
+        .info-box strong {
+          color: #B8935E;
+        }
+        .reminder-box {
+          background-color: #E3F2FD;
+          border: 2px solid #2196F3;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 8px;
+          text-align: center;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          padding-top: 20px;
+          border-top: 1px solid #ddd;
+          color: #666;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🔔 Reminder: D79 Fall Crawl Tomorrow!</h1>
+      </div>
+      <div class="content">
+        <p>Dear ${data.firstName} ${data.lastName},</p>
+        
+        <p>This is a friendly reminder that you are registered for the <strong>District 79 Fall Crawl</strong> happening tomorrow!</p>
+        
+        <div class="reminder-box">
+          <h2 style="margin-top: 0; color: #1976D2;">📅 Your Event Details</h2>
+          <p><strong>Date:</strong> ${dateDisplay}</p>
+          <p><strong>Time:</strong> ${data.time}</p>
+          <p><strong>Location:</strong> ${locationDisplay}</p>
+        </div>
+        
+        <div class="info-box">
+          <h3 style="margin-top: 0; color: #B8935E;">Important Reminders:</h3>
+          <ul>
+            <li><strong>Arrive 10 minutes early</strong> - Please be punctual</li>
+            <li><strong>Bring your NYCPS ID</strong> - Required for entry</li>
+            <li><strong>Dress comfortably</strong> - We'll be doing a site visit</li>
+            <li><strong>Bring a notepad</strong> - To take notes during the session</li>
+          </ul>
+        </div>
+        
+        <h3>What to Expect:</h3>
+        <ul>
+          <li>Welcome and introduction to District 79</li>
+          <li>Information session about our programs and services</li>
+          <li>Guided tour of a Referral Center and D79 site</li>
+          <li>Q&A session with District 79 staff</li>
+          <li>Networking opportunity with other NYCPS employees</li>
+        </ul>
+        
+        <p><strong>Need to cancel or have questions?</strong><br>
+        Contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a></p>
+        
+        <p>We're excited to see you tomorrow!</p>
+        
+        <p><strong>District 79 Team</strong><br>
+        Alternative Schools & Programs</p>
+      </div>
+      
+      <div class="footer">
+        <p>District 79 - NYC Public Schools</p>
+        <p>This is an automated reminder email. Please do not reply directly to this message.</p>
+      </div>
+    </body>
+    </html>
+  `;
+};
