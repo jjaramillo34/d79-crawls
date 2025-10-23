@@ -202,6 +202,24 @@ export default async function HomePage() {
           </div>
         </div>
 
+        {/* Thank You Message */}
+        <div className="text-center mb-16">
+          <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
+            <h2 className="text-2xl font-bold mb-4" style={{color: '#ECC67F'}}>
+              Thank You to All NYCPS Employees!
+            </h2>
+            <p className="text-lg text-gray-800 mb-2">
+              We are grateful for the overwhelming response from NYCPS employees.
+            </p>
+            <p className="text-lg text-gray-800 mb-2">
+              All spots for the Fall Crawls are now full!
+            </p>
+            <p className="text-lg text-gray-800">
+              We look forward to seeing everyone at the events and making meaningful connections.
+            </p>
+          </div>
+        </div>
+
         {/* Registration Button */}
         <div className="text-center mb-16">
           <Link
