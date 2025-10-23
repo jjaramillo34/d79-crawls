@@ -1,32 +1,7 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
-// Extend jsPDF type to include autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: AutoTableOptions) => jsPDF;
-  }
-}
-
-interface AutoTableOptions {
-  head: string[][];
-  body: (string | number)[][];
-  startY?: number;
-  styles?: {
-    fontSize?: number;
-    cellPadding?: number;
-  };
-  headStyles?: {
-    fillColor?: number[];
-    textColor?: number[];
-    fontStyle?: string;
-  };
-  alternateRowStyles?: {
-    fillColor?: number[];
-  };
-  columnStyles?: Record<number, { cellWidth?: number }>;
-  margin?: { left?: number; right?: number };
-}
+// Type definition for autoTable function
 
 interface Registration {
   firstName: string;
@@ -115,37 +90,37 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
       index + 1,
       `${reg.firstName} ${reg.lastName}`,
       reg.email,
-      reg.phone,
-      reg.school,
-      new Date(reg.registeredAt).toLocaleDateString()
+      reg.school
     ]);
 
     // Generate table
-    doc.autoTable({
-      head: [['#', 'Name', 'Email', 'Phone', 'School', 'Registered']],
+    autoTable(doc, {
+      head: [['#', 'Name', 'Email', 'School']],
       body: tableData,
       startY: startY + 15,
       styles: {
-        fontSize: 8,
-        cellPadding: 3,
+        fontSize: 9,
+        cellPadding: 4,
+        halign: 'left',
+        valign: 'middle',
       },
       headStyles: {
         fillColor: [236, 198, 127], // D79 golden color
         textColor: [0, 0, 0],
         fontStyle: 'bold',
+        halign: 'center',
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252], // Light gray
       },
       columnStyles: {
-        0: { cellWidth: 15 }, // #
-        1: { cellWidth: 40 }, // Name
-        2: { cellWidth: 50 }, // Email
-        3: { cellWidth: 35 }, // Phone
-        4: { cellWidth: 45 }, // School
-        5: { cellWidth: 25 }, // Registered
+        0: { cellWidth: 25, halign: 'center' }, // #
+        1: { cellWidth: 80 }, // Name
+        2: { cellWidth: 90 }, // Email
+        3: { cellWidth: 80 }, // School
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: 10, right: 10 },
+      tableWidth: 'wrap',
     });
 
     // Update startY for next location
@@ -159,7 +134,8 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
   });
 
   // Add footer
-  const pageCount = doc.getNumberOfPages();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
@@ -219,35 +195,40 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
     location.availableSpots > 0 ? 'Available' : 'Full'
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     head: [['#', 'Location', 'Date', 'Registered', 'Capacity', 'Status']],
     body: summaryData,
     startY: 110,
     styles: {
-      fontSize: 10,
+      fontSize: 9,
       cellPadding: 4,
+      halign: 'left',
+      valign: 'middle',
     },
     headStyles: {
       fillColor: [236, 198, 127], // D79 golden color
       textColor: [0, 0, 0],
       fontStyle: 'bold',
+      halign: 'center',
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252], // Light gray
     },
     columnStyles: {
-      0: { cellWidth: 15 }, // #
-      1: { cellWidth: 60 }, // Location
-      2: { cellWidth: 40 }, // Date
-      3: { cellWidth: 25 }, // Registered
-      4: { cellWidth: 25 }, // Capacity
-      5: { cellWidth: 25 }, // Status
+      0: { cellWidth: 20, halign: 'center' }, // #
+      1: { cellWidth: 80 }, // Location
+      2: { cellWidth: 50 }, // Date
+      3: { cellWidth: 30, halign: 'center' }, // Registered
+      4: { cellWidth: 30, halign: 'center' }, // Capacity
+      5: { cellWidth: 30, halign: 'center' }, // Status
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: 10, right: 10 },
+    tableWidth: 'wrap',
   });
 
   // Add footer
-  const pageCount = doc.getNumberOfPages();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
