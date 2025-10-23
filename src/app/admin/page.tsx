@@ -266,7 +266,10 @@ export default function AdminPage() {
                         {expandedLocation === location._id ? '▼ Hide Registrations' : '▶ Show Registrations'}
                       </button>
                       <button
-                        onClick={() => downloadParticipantsPDF([location], location.eventDate as 'tuesday' | 'thursday')}
+                        onClick={() => {
+                          const eventType = location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday' ? 'tuesday' : 'thursday';
+                          downloadParticipantsPDF([location], eventType);
+                        }}
                         className="flex items-center text-xs text-white px-3 py-1 rounded font-semibold hover:opacity-90 transition-opacity"
                         style={{backgroundColor: '#ECC67F'}}
                       >

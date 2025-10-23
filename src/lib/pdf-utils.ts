@@ -54,9 +54,24 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
   // Filter locations based on event type
   const filteredLocations = eventType === 'all' 
     ? locationStats 
-    : locationStats.filter(location => 
-        eventType === 'tuesday' ? location.eventDate === 'tuesday' : location.eventDate === 'thursday'
-      );
+    : locationStats.filter(location => {
+        if (eventType === 'tuesday') {
+          return location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday';
+        } else {
+          return location.eventDate.includes('Thursday') || location.eventDate === 'thursday';
+        }
+      });
+
+  // Check if we have any locations with registrations
+  const locationsWithRegistrations = filteredLocations.filter(location => location.registrations.length > 0);
+
+  if (locationsWithRegistrations.length === 0) {
+    // Add a message if no registrations found
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text('No registrations found for the selected event(s)', 105, 50, { align: 'center' });
+    return doc;
+  }
 
   // Add header
   doc.setFontSize(20);
@@ -79,7 +94,7 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
   let startY = 50;
 
   // Generate table for each location
-  filteredLocations.forEach((location, locationIndex) => {
+  locationsWithRegistrations.forEach((location, locationIndex) => {
     if (location.registrations.length === 0) return;
 
     // Add location header
@@ -90,7 +105,10 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     doc.text(`${location.address}`, 14, startY + 5);
-    doc.text(`${location.eventDate === 'tuesday' ? 'Tuesday, October 28' : 'Thursday, October 30'} - ${location.registrationCount}/${location.maxCapacity} participants`, 14, startY + 10);
+    const eventDateDisplay = location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday' 
+      ? 'Tuesday, October 28' 
+      : 'Thursday, October 30';
+    doc.text(`${eventDateDisplay} - ${location.registrationCount}/${location.maxCapacity} participants`, 14, startY + 10);
 
     // Prepare table data
     const tableData = location.registrations.map((reg, index) => [
@@ -134,7 +152,7 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
     startY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
 
     // Add page break if needed (except for last location)
-    if (locationIndex < filteredLocations.length - 1 && startY > 250) {
+    if (locationIndex < locationsWithRegistrations.length - 1 && startY > 250) {
       doc.addPage();
       startY = 20;
     }
@@ -175,8 +193,8 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
 
   // Calculate totals
   const totalRegistrations = locationStats.reduce((sum, location) => sum + location.registrationCount, 0);
-  const tuesdayLocations = locationStats.filter(loc => loc.eventDate === 'tuesday');
-  const thursdayLocations = locationStats.filter(loc => loc.eventDate === 'thursday');
+  const tuesdayLocations = locationStats.filter(loc => loc.eventDate.includes('Tuesday') || loc.eventDate === 'tuesday');
+  const thursdayLocations = locationStats.filter(loc => loc.eventDate.includes('Thursday') || loc.eventDate === 'thursday');
   const tuesdayTotal = tuesdayLocations.reduce((sum, location) => sum + location.registrationCount, 0);
   const thursdayTotal = thursdayLocations.reduce((sum, location) => sum + location.registrationCount, 0);
 
@@ -195,7 +213,7 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
   const summaryData = locationStats.map((location, index) => [
     index + 1,
     location.name,
-    location.eventDate === 'tuesday' ? 'Tuesday, Oct 28' : 'Thursday, Oct 30',
+    location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday' ? 'Tuesday, Oct 28' : 'Thursday, Oct 30',
     location.registrationCount,
     location.maxCapacity,
     location.availableSpots > 0 ? 'Available' : 'Full'
