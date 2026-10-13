@@ -2,43 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
 import { sendEmail, getReminderEmail } from '@/lib/email';
 import { ObjectId } from 'mongodb';
+import { requireAdmin } from '@/lib/auth';
+import { formatEventDate } from '@/lib/crawls';
 
 export async function POST(request: NextRequest) {
   try {
-    const { password, eventType } = await request.json();
-    
-    // Check password against environment variable
-    const adminPassword = process.env.ADMIN_PASSWORD || 'district79admin';
-    
-    if (password !== adminPassword) {
-      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
-    }
+    const auth = await requireAdmin(request);
+    if (auth instanceof NextResponse) return auth;
 
-    if (!eventType || !['tuesday', 'thursday'].includes(eventType)) {
-      return NextResponse.json({ error: 'Invalid event type. Must be tuesday or thursday' }, { status: 400 });
+    const { eventId } = await request.json();
+    if (typeof eventId !== 'string' || !ObjectId.isValid(eventId)) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 400 });
     }
     
     const db = await getDatabase();
     
-    // Get all registrations for the specified event type
+    const event = await db.collection('events').findOne({ _id: new ObjectId(eventId) });
+    if (!event) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+    const dateLabel = formatEventDate(event.date);
+    
+    // Registrations are tied to the session's locations
+    const locationIds = (event.locationIds || []) as ObjectId[];
     const registrations = await db.collection('registrations').find({
-      crawlDate: eventType
+      crawlLocation: { $in: locationIds.map(id => id.toString()) }
     }).toArray();
     
     if (registrations.length === 0) {
       return NextResponse.json({ 
         success: true, 
-        message: `No registrations found for ${eventType} event`,
+        message: `No registrations found for ${event.title}`,
         emailsSent: 0,
         errors: []
       });
     }
     
-    // Get location information for each registration
-    const locationIds = [...new Set(registrations.map(reg => reg.crawlLocation))];
-    const locations = await db.collection('eventLocations').find({
-      _id: { $in: locationIds.map(id => new ObjectId(id)) }
-    }).toArray();
+    const locations = await db.collection('eventLocations').find({ _id: { $in: locationIds } }).toArray();
     
     const locationMap = new Map();
     locations.forEach(location => {
@@ -64,16 +64,16 @@ export async function POST(request: NextRequest) {
         const emailData = {
           firstName: registration.firstName,
           lastName: registration.lastName,
-          crawlDate: registration.crawlDate,
+          crawlDate: dateLabel,
           crawlLocationName: location.name,
           crawlLocationAddress: location.address,
-          time: '10:00 AM - 12:00 PM'
+          time: event.time
         };
         
         const emailHtml = getReminderEmail(emailData);
         const emailResult = await sendEmail({
           to: registration.email,
-          subject: `🔔 Reminder: D79 Fall Crawl Tomorrow - ${eventType === 'tuesday' ? 'Tuesday, October 28' : 'Thursday, October 30'}`,
+          subject: `🔔 Reminder: D79 Fall Crawl Tomorrow - ${dateLabel}`,
           html: emailHtml
         });
         
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: `Reminder emails processed for ${eventType} event`,
+      message: `Reminder emails processed for ${event.title}`,
       emailsSent: results.length,
       totalRegistrations: registrations.length,
       results,

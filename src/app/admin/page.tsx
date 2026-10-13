@@ -1,42 +1,113 @@
 'use client';
 
-import { useState } from 'react';
-import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar, Download, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Lock, Eye, EyeOff, CheckCircle, LogOut, KeyRound, X, ChevronDown, Home,
+  LayoutDashboard, Users, CalendarDays, Send, FileText, RefreshCw,
+} from 'lucide-react';
 import Link from 'next/link';
-import { downloadParticipantsPDF, downloadSummaryPDF } from '@/lib/pdf-utils';
+import CrawlSessionsPanel from './CrawlSessionsPanel';
+import ChangePasswordForm from './ChangePasswordForm';
+import OverviewTab from './OverviewTab';
+import RegistrationsTab from './RegistrationsTab';
+import RemindersTab from './RemindersTab';
+import ReportsTab from './ReportsTab';
+import { BRAND, BRAND_TEXT, DashboardEvent, LocationStat } from './types';
 
-interface Registration {
-  firstName: string;
-  lastName: string;
+const TABS = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'registrations', label: 'Registrations', icon: Users },
+  { id: 'sessions', label: 'Crawl Sessions', icon: CalendarDays },
+  { id: 'reminders', label: 'Reminders', icon: Send },
+  { id: 'reports', label: 'Reports', icon: FileText },
+] as const;
+
+type TabId = typeof TABS[number]['id'];
+
+interface AdminInfo {
   email: string;
-  phone: string;
-  school: string;
-  registeredAt: string;
-}
-
-interface LocationStat {
-  _id: string;
-  name: string;
-  address: string;
-  eventDate: string;
-  registrationCount: number;
-  maxCapacity: number;
-  availableSpots: number;
-  registrations: Registration[];
+  name?: string;
+  mustChangePassword: boolean;
 }
 
 export default function AdminPage() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [admin, setAdmin] = useState<AdminInfo | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [totalRegistrations, setTotalRegistrations] = useState(0);
   const [locationStats, setLocationStats] = useState<LocationStat[]>([]);
-  const [expandedLocation, setExpandedLocation] = useState<string | null>(null);
-  const [sendingReminders, setSendingReminders] = useState<{ [key: string]: boolean }>({});
-  const [reminderResults, setReminderResults] = useState<{ [key: string]: { success: boolean; emailsSent?: number; error?: string } | null }>({});
-  const [showReminderPreview, setShowReminderPreview] = useState<string | null>(null);
+  const [events, setEvents] = useState<DashboardEvent[]>([]);
+  const [cycle, setCycle] = useState<number | null>(null);
+  const [cycles, setCycles] = useState<number[]>([]);
+  const [activeCycle, setActiveCycle] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+
+  const handleUnauthorized = useCallback(() => {
+    setAdmin(null);
+    setError('Your session has expired. Please sign in again.');
+  }, []);
+
+  // Without a cycle, the server returns the cycle that is open for registration
+  const loadDashboard = useCallback(async (requestedCycle?: number | null) => {
+    const query = requestedCycle ? `?cycle=${requestedCycle}` : '';
+    const response = await fetch(`/api/admin/registrations${query}`);
+    if (response.status === 401) return handleUnauthorized();
+    if (!response.ok) throw new Error('Failed to load registrations');
+
+    const data = await response.json();
+    setTotalRegistrations(data.totalRegistrations);
+    setLocationStats(data.locationStats);
+    setEvents(data.events);
+    setCycle(data.cycle);
+    setCycles(data.cycles);
+    setActiveCycle(data.activeCycle);
+  }, [handleUnauthorized]);
+
+  // Keep the selected tab in the URL hash so reloads and links land on the same tab
+  useEffect(() => {
+    const fromHash = window.location.hash.slice(1);
+    if (TABS.some(tab => tab.id === fromHash)) setActiveTab(fromHash as TabId);
+  }, []);
+
+  const selectTab = (tab: TabId) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, '', `#${tab}`);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadDashboard(cycle);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Restore an existing session on page load
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch('/api/admin/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          setAdmin(data.admin);
+          if (!data.admin.mustChangePassword) await loadDashboard();
+        }
+      } catch {
+        // Fall through to the login form
+      } finally {
+        setCheckingSession(false);
+      }
+    })();
+  }, [loadDashboard]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,21 +115,21 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/registrations', {
+      const response = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        setError('Invalid password');
+        setError(data.error || 'Invalid email or password');
         return;
       }
 
-      const data = await response.json();
-      setIsAuthenticated(true);
-      setTotalRegistrations(data.totalRegistrations);
-      setLocationStats(data.locationStats);
+      setPassword('');
+      setAdmin(data.admin);
+      if (!data.admin.mustChangePassword) await loadDashboard();
     } catch {
       setError('Failed to authenticate');
     } finally {
@@ -66,60 +137,34 @@ export default function AdminPage() {
     }
   };
 
-  const handleSendReminders = async (eventType: 'tuesday' | 'thursday') => {
-    setSendingReminders(prev => ({ ...prev, [eventType]: true }));
-    setReminderResults(prev => ({ ...prev, [eventType]: null }));
-    
-    try {
-      const response = await fetch('/api/admin/send-reminders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          password, 
-          eventType 
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send reminders');
-      }
-      
-      setReminderResults(prev => ({ ...prev, [eventType]: data }));
-    } catch (error) {
-      console.error('Error sending reminders:', error);
-      setReminderResults(prev => ({ 
-        ...prev, 
-        [eventType]: { 
-          success: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        } 
-      }));
-    } finally {
-      setSendingReminders(prev => ({ ...prev, [eventType]: false }));
-    }
+  const handlePasswordChanged = async () => {
+    setShowChangePassword(false);
+    setPasswordChanged(true);
+    const wasRequired = admin?.mustChangePassword;
+    setAdmin(prev => prev && { ...prev, mustChangePassword: false });
+    if (wasRequired) await loadDashboard();
   };
 
-  const getReminderParticipants = (eventType: 'tuesday' | 'thursday') => {
-    return locationStats
-      .filter(location => {
-        if (eventType === 'tuesday') {
-          return location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday';
-        } else {
-          return location.eventDate.includes('Thursday') || location.eventDate === 'thursday';
-        }
-      })
-      .flatMap(location => 
-        location.registrations.map(reg => ({
-          ...reg,
-          locationName: location.name,
-          locationAddress: location.address
-        }))
-      );
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth/logout', { method: 'POST' }).catch(() => {});
+    setAdmin(null);
+    setError('');
+    setTotalRegistrations(0);
+    setLocationStats([]);
+    setShowChangePassword(false);
+    setPasswordChanged(false);
+    setMenuOpen(false);
   };
 
-  if (!isAuthenticated) {
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center">
+        <p className="text-gray-500">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!admin) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -129,10 +174,26 @@ export default function AdminPage() {
                 <Lock className="h-8 w-8" style={{color: '#ECC67F'}} />
               </div>
               <h1 className="text-2xl font-bold mb-2" style={{color: '#ECC67F'}}>Admin Access</h1>
-              <p className="text-gray-600">Enter password to view registrations</p>
+              <p className="text-gray-600">Sign in with your admin account</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none"
+                  placeholder="you@schools.nyc.gov"
+                  required
+                />
+              </div>
+
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   Password
@@ -141,15 +202,17 @@ export default function AdminPage() {
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none"
-                    placeholder="Enter admin password"
+                    placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -169,7 +232,7 @@ export default function AdminPage() {
                 className="w-full text-white px-6 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{backgroundColor: '#ECC67F'}}
               >
-                {loading ? 'Authenticating...' : 'Access Admin Panel'}
+                {loading ? 'Signing in...' : 'Sign In'}
               </button>
             </form>
 
@@ -184,324 +247,194 @@ export default function AdminPage() {
     );
   }
 
+  if (admin.mustChangePassword) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-xl shadow-lg p-8 border-2" style={{borderColor: '#ECC67F'}}>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{backgroundColor: '#ECC67F20'}}>
+                <KeyRound className="h-8 w-8" style={{color: '#ECC67F'}} />
+              </div>
+              <h1 className="text-2xl font-bold mb-2" style={{color: '#ECC67F'}}>Set Your Password</h1>
+              <p className="text-gray-600">You signed in with a one-time password. Choose your own to continue.</p>
+            </div>
+            <ChangePasswordForm onSuccess={handlePasswordChanged} onUnauthorized={handleUnauthorized} />
+            <div className="mt-6 text-center">
+              <button onClick={handleLogout} className="text-sm hover:underline" style={{color: '#ECC67F'}}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2" style={{color: '#ECC67F'}}>Registration Dashboard</h1>
-            <p className="text-gray-600">D79 Fall Crawls - Admin Panel</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => downloadSummaryPDF(locationStats)}
-              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              style={{backgroundColor: '#ECC67F'}}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Summary PDF
-            </button>
-            <button
-              onClick={() => downloadParticipantsPDF(locationStats, 'tuesday')}
-              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              style={{backgroundColor: '#ECC67F'}}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Tuesday PDF
-            </button>
-            <button
-              onClick={() => downloadParticipantsPDF(locationStats, 'thursday')}
-              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              style={{backgroundColor: '#ECC67F'}}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Thursday PDF
-            </button>
-            <button
-              onClick={() => downloadParticipantsPDF(locationStats, 'all')}
-              className="flex items-center text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              style={{backgroundColor: '#ECC67F'}}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              All Events PDF
-            </button>
-            <Link 
-              href="/" 
-              className="text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              style={{backgroundColor: '#ECC67F'}}
-            >
-              Back to Home
-            </Link>
-          </div>
-        </div>
-
-        {/* Total Stats */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
-          <div className="flex items-center">
-            <Users className="h-12 w-12 mr-4" style={{color: '#ECC67F'}} />
-            <div>
-              <p className="text-gray-600 text-sm">Total Registrations</p>
-              <p className="text-4xl font-bold" style={{color: '#ECC67F'}}>{totalRegistrations}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Reminder Email Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
-          <h2 className="text-2xl font-bold mb-6" style={{color: '#ECC67F'}}>Send Reminder Emails</h2>
-          
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Tuesday Reminders */}
-            <div className="border rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Tuesday Event Reminders</h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setShowReminderPreview(showReminderPreview === 'tuesday' ? null : 'tuesday')}
-                    className="text-sm px-3 py-1 rounded border hover:bg-gray-50"
-                    style={{borderColor: '#ECC67F', color: '#ECC67F'}}
-                  >
-                    {showReminderPreview === 'tuesday' ? 'Hide Preview' : 'Preview Recipients'}
-                  </button>
-                  <button
-                    onClick={() => handleSendReminders('tuesday')}
-                    disabled={sendingReminders.tuesday}
-                    className="flex items-center text-white px-4 py-2 rounded font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                    style={{backgroundColor: '#ECC67F'}}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    {sendingReminders.tuesday ? 'Sending...' : 'Send Reminders'}
-                  </button>
-                </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top bar */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-3">
+            <div className="flex items-center min-w-0">
+              <span className="w-9 h-9 rounded-lg flex items-center justify-center mr-3 flex-shrink-0" style={{backgroundColor: BRAND}}>
+                <LayoutDashboard className="h-5 w-5 text-gray-900" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-bold text-gray-900 leading-tight">D79 Fall Crawls</p>
+                <p className="text-xs text-gray-500 leading-tight">Admin dashboard</p>
               </div>
-              
-              <p className="text-sm text-gray-600 mb-3">
-                Send to {getReminderParticipants('tuesday').length} participants for Tuesday, October 28
-              </p>
-              
-              {reminderResults.tuesday && (
-                <div className={`p-3 rounded text-sm ${
-                  reminderResults.tuesday.success 
-                    ? 'bg-green-50 text-green-800 border border-green-200' 
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  {reminderResults.tuesday.success ? (
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      <span>Sent {reminderResults.tuesday.emailsSent} emails successfully</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      <span>Error: {reminderResults.tuesday.error}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {showReminderPreview === 'tuesday' && (
-                <div className="mt-4 max-h-40 overflow-y-auto">
-                  <h4 className="text-sm font-semibold mb-2">Recipients:</h4>
-                  <div className="space-y-1">
-                    {getReminderParticipants('tuesday').map((participant, index) => (
-                      <div key={index} className="text-xs text-gray-600 flex justify-between">
-                        <span>{participant.firstName} {participant.lastName}</span>
-                        <span>{participant.email}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Thursday Reminders */}
-            <div className="border rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Thursday Event Reminders</h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setShowReminderPreview(showReminderPreview === 'thursday' ? null : 'thursday')}
-                    className="text-sm px-3 py-1 rounded border hover:bg-gray-50"
-                    style={{borderColor: '#ECC67F', color: '#ECC67F'}}
-                  >
-                    {showReminderPreview === 'thursday' ? 'Hide Preview' : 'Preview Recipients'}
-                  </button>
-                  <button
-                    onClick={() => handleSendReminders('thursday')}
-                    disabled={sendingReminders.thursday}
-                    className="flex items-center text-white px-4 py-2 rounded font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                    style={{backgroundColor: '#ECC67F'}}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    {sendingReminders.thursday ? 'Sending...' : 'Send Reminders'}
-                  </button>
-                </div>
-              </div>
-              
-              <p className="text-sm text-gray-600 mb-3">
-                Send to {getReminderParticipants('thursday').length} participants for Thursday, October 30
-              </p>
-              
-              {reminderResults.thursday && (
-                <div className={`p-3 rounded text-sm ${
-                  reminderResults.thursday.success 
-                    ? 'bg-green-50 text-green-800 border border-green-200' 
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  {reminderResults.thursday.success ? (
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      <span>Sent {reminderResults.thursday.emailsSent} emails successfully</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      <span>Error: {reminderResults.thursday.error}</span>
-                    </div>
-                  )}
-                </div>
+            <div className="flex items-center gap-2">
+              {cycles.length > 0 && (
+                <select
+                  value={cycle ?? ''}
+                  onChange={(e) => loadDashboard(Number(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none bg-white"
+                  aria-label="Cycle"
+                  title="Which year's registrations to show"
+                >
+                  {cycles.map(year => (
+                    <option key={year} value={year}>{year}{year === activeCycle ? ' · Open' : ''}</option>
+                  ))}
+                </select>
               )}
-              
-              {showReminderPreview === 'thursday' && (
-                <div className="mt-4 max-h-40 overflow-y-auto">
-                  <h4 className="text-sm font-semibold mb-2">Recipients:</h4>
-                  <div className="space-y-1">
-                    {getReminderParticipants('thursday').map((participant, index) => (
-                      <div key={index} className="text-xs text-gray-600 flex justify-between">
-                        <span>{participant.firstName} {participant.lastName}</span>
-                        <span>{participant.email}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+                title="Refresh data"
+                aria-label="Refresh data"
+              >
+                <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
 
-        {/* All Registrants Summary */}
-        {totalRegistrations > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
-            <h2 className="text-2xl font-bold mb-4" style={{color: '#ECC67F'}}>All Registered Attendees</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {locationStats.flatMap(location => 
-                location.registrations.map((reg, idx) => (
-                  <div key={`${location._id}-${idx}`} className="bg-gray-50 rounded-lg p-4">
-                    <p className="font-bold text-gray-900 mb-1">{reg.firstName} {reg.lastName}</p>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <Mail className="h-3 w-3 inline mr-1" />
-                      {reg.email}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <Phone className="h-3 w-3 inline mr-1" />
-                      {reg.phone}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">
-                      School: {reg.school}
-                    </p>
-                    <p className="text-xs font-semibold mt-2" style={{color: '#ECC67F'}}>
-                      {location.name}
-                    </p>
-                    <p className="text-xs text-gray-500">{location.eventDate}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-gray-100"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                >
+                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-gray-900" style={{backgroundColor: `${BRAND}66`}}>
+                    {admin.email.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hidden sm:block text-sm text-gray-700 max-w-[220px] truncate">{admin.email}</span>
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
 
-        {/* Location Stats */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold" style={{color: '#ECC67F'}}>Registrations by Location</h2>
-          
-          {locationStats.map((location) => (
-            <div key={location._id} className="bg-white rounded-xl shadow-lg border-2" style={{borderColor: '#ECC67F'}}>
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                      <h3 className="text-xl font-bold" style={{color: '#ECC67F'}}>{location.name}</h3>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">{location.address}</p>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      <span className="font-semibold">{location.eventDate}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className="flex items-center mb-2">
-                      <Users className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                      <span className="text-2xl font-bold" style={{color: '#ECC67F'}}>
-                        {location.registrationCount} / {location.maxCapacity}
-                      </span>
-                    </div>
-                    <p className={`text-sm font-semibold ${location.availableSpots > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {location.availableSpots > 0 ? `${location.availableSpots} spots left` : 'FULL'}
-                    </p>
-                  </div>
-                </div>
-
-                {location.registrationCount > 0 && (
+                {menuOpen && (
                   <>
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                    <div role="menu" className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-xs text-gray-500">Signed in as</p>
+                        <p className="text-sm text-gray-900 truncate">{admin.email}</p>
+                      </div>
                       <button
-                        onClick={() => setExpandedLocation(expandedLocation === location._id ? null : location._id)}
-                        className="text-sm font-semibold hover:underline"
-                        style={{color: '#ECC67F'}}
+                        role="menuitem"
+                        onClick={() => { setMenuOpen(false); setPasswordChanged(false); setShowChangePassword(true); }}
+                        className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        {expandedLocation === location._id ? '▼ Hide Registrations' : '▶ Show Registrations'}
+                        <KeyRound className="h-4 w-4 mr-2" />
+                        Change password
                       </button>
-                      <button
-                        onClick={() => {
-                          const eventType = location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday' ? 'tuesday' : 'thursday';
-                          downloadParticipantsPDF([location], eventType);
-                        }}
-                        className="flex items-center text-xs text-white px-3 py-1 rounded font-semibold hover:opacity-90 transition-opacity"
-                        style={{backgroundColor: '#ECC67F'}}
+                      <Link
+                        role="menuitem"
+                        href="/"
+                        className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        <Download className="h-3 w-3 mr-1" />
-                        Download PDF
+                        <Home className="h-4 w-4 mr-2" />
+                        Back to site
+                      </Link>
+                      <button
+                        role="menuitem"
+                        onClick={handleLogout}
+                        className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-100"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign out
                       </button>
                     </div>
-
-                    {expandedLocation === location._id && (
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold mb-3" style={{color: '#ECC67F'}}>Registered Attendees:</h4>
-                        <div className="space-y-3">
-                          {location.registrations.map((reg, idx) => (
-                            <div key={idx} className="bg-gray-50 rounded-lg p-4">
-                              <div className="grid md:grid-cols-2 gap-3">
-                                <div>
-                                  <p className="font-semibold text-gray-900">{reg.firstName} {reg.lastName}</p>
-                                  <div className="flex items-center text-sm text-gray-600 mt-1">
-                                    <Mail className="h-3 w-3 mr-1" />
-                                    <a href={`mailto:${reg.email}`} className="hover:underline">{reg.email}</a>
-                                  </div>
-                                  <div className="flex items-center text-sm text-gray-600 mt-1">
-                                    <Phone className="h-3 w-3 mr-1" />
-                                    <span>{reg.phone}</span>
-                                  </div>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  <p><span className="font-semibold">School:</span> {reg.school}</p>
-                                  <p><span className="font-semibold">Registered:</span> {new Date(reg.registeredAt).toLocaleString()}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* Tabs */}
+          <nav className="flex gap-1 overflow-x-auto -mb-px" aria-label="Admin sections">
+            {TABS.map(({ id, label, icon: Icon }) => {
+              const active = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => selectTab(id)}
+                  className={`flex items-center px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                    active ? 'text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                  style={active ? { borderColor: BRAND } : undefined}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon className="h-4 w-4 mr-2" style={active ? { color: BRAND_TEXT } : undefined} />
+                  {label}
+                  {id === 'registrations' && (
+                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{totalRegistrations}</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
-      </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {passwordChanged && (
+          <div className="mb-6 p-3 rounded-lg text-sm bg-green-50 text-green-800 border border-green-200 flex items-center justify-between">
+            <span className="flex items-center">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Password updated. Any other sessions for your account have been signed out.
+            </span>
+            <button onClick={() => setPasswordChanged(false)} aria-label="Dismiss" className="text-green-700 hover:text-green-900">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {cycle !== null && activeTab !== 'sessions' && cycle !== activeCycle && (
+          <div className="mb-6 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
+            You are viewing the {cycle} cycle, which is closed for registration.
+          </div>
+        )}
+
+        {activeTab === 'overview' && <OverviewTab totalRegistrations={totalRegistrations} locationStats={locationStats} events={events} />}
+        {activeTab === 'registrations' && <RegistrationsTab key={cycle ?? 'none'} locationStats={locationStats} events={events} />}
+        {activeTab === 'sessions' && (
+          <CrawlSessionsPanel onUnauthorized={handleUnauthorized} onChanged={() => loadDashboard()} />
+        )}
+        {activeTab === 'reminders' && <RemindersTab locationStats={locationStats} events={events} onUnauthorized={handleUnauthorized} />}
+        {activeTab === 'reports' && <ReportsTab locationStats={locationStats} events={events} />}
+      </main>
+
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Change Password</h3>
+              <button onClick={() => setShowChangePassword(false)} className="text-gray-500 hover:text-gray-700" aria-label="Close">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <ChangePasswordForm
+              onSuccess={handlePasswordChanged}
+              onUnauthorized={handleUnauthorized}
+              onCancel={() => setShowChangePassword(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

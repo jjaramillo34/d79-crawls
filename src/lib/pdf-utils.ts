@@ -16,29 +16,21 @@ interface LocationStat {
   _id: string;
   name: string;
   address: string;
-  eventDate: string;
+  eventTitle?: string;
+  eventDate: string; // display label, e.g. "Friday, Nov 6"
+
   registrationCount: number;
   maxCapacity: number;
   availableSpots: number;
   registrations: Registration[];
 }
 
-export function generateParticipantsPDF(locationStats: LocationStat[], eventType: 'tuesday' | 'thursday' | 'all') {
+// Callers pass only the locations to include, plus a heading such as "ALL EVENTS" or "FRIDAY, NOV 6"
+export function generateParticipantsPDF(locationStats: LocationStat[], heading: string) {
   const doc = new jsPDF();
-  
-  // Filter locations based on event type
-  const filteredLocations = eventType === 'all' 
-    ? locationStats 
-    : locationStats.filter(location => {
-        if (eventType === 'tuesday') {
-          return location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday';
-        } else {
-          return location.eventDate.includes('Thursday') || location.eventDate === 'thursday';
-        }
-      });
 
   // Check if we have any locations with registrations
-  const locationsWithRegistrations = filteredLocations.filter(location => location.registrations.length > 0);
+  const locationsWithRegistrations = locationStats.filter(location => location.registrations.length > 0);
 
   if (locationsWithRegistrations.length === 0) {
     // Add a message if no registrations found
@@ -55,13 +47,7 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
   
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
-  const eventTitle = eventType === 'all' 
-    ? 'PARTICIPANT REGISTRATIONS - ALL EVENTS'
-    : eventType === 'tuesday' 
-    ? 'PARTICIPANT REGISTRATIONS - TUESDAY, OCTOBER 28'
-    : 'PARTICIPANT REGISTRATIONS - THURSDAY, OCTOBER 30';
-  
-  doc.text(eventTitle, 105, 30, { align: 'center' });
+  doc.text(`PARTICIPANT REGISTRATIONS - ${heading.toUpperCase()}`, 105, 30, { align: 'center' });
   
   doc.setFontSize(12);
   doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 40, { align: 'center' });
@@ -80,10 +66,7 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     doc.text(`${location.address}`, 14, startY + 5);
-    const eventDateDisplay = location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday' 
-      ? 'Tuesday, October 28' 
-      : 'Thursday, October 30';
-    doc.text(`${eventDateDisplay} - ${location.registrationCount}/${location.maxCapacity} participants`, 14, startY + 10);
+    doc.text(`${location.eventDate} - ${location.registrationCount}/${location.maxCapacity} participants`, 14, startY + 10);
 
     // Prepare table data
     const tableData = location.registrations.map((reg, index) => [
@@ -146,9 +129,10 @@ export function generateParticipantsPDF(locationStats: LocationStat[], eventType
   return doc;
 }
 
-export function downloadParticipantsPDF(locationStats: LocationStat[], eventType: 'tuesday' | 'thursday' | 'all') {
-  const doc = generateParticipantsPDF(locationStats, eventType);
-  const fileName = `d79-participants-${eventType}-${new Date().toISOString().split('T')[0]}.pdf`;
+export function downloadParticipantsPDF(locationStats: LocationStat[], heading: string) {
+  const doc = generateParticipantsPDF(locationStats, heading);
+  const slug = heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const fileName = `d79-participants-${slug}-${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
 }
 
@@ -169,10 +153,12 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
 
   // Calculate totals
   const totalRegistrations = locationStats.reduce((sum, location) => sum + location.registrationCount, 0);
-  const tuesdayLocations = locationStats.filter(loc => loc.eventDate.includes('Tuesday') || loc.eventDate === 'tuesday');
-  const thursdayLocations = locationStats.filter(loc => loc.eventDate.includes('Thursday') || loc.eventDate === 'thursday');
-  const tuesdayTotal = tuesdayLocations.reduce((sum, location) => sum + location.registrationCount, 0);
-  const thursdayTotal = thursdayLocations.reduce((sum, location) => sum + location.registrationCount, 0);
+  // Totals per session (title + date)
+  const sessionTotals = new Map<string, number>();
+  for (const location of locationStats) {
+    const key = location.eventTitle ? `${location.eventTitle} (${location.eventDate})` : location.eventDate;
+    sessionTotals.set(key, (sessionTotals.get(key) || 0) + location.registrationCount);
+  }
 
   // Add summary statistics
   doc.setFontSize(14);
@@ -182,14 +168,17 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text(`Total Registrations: ${totalRegistrations}`, 14, 75);
-  doc.text(`Tuesday Event: ${tuesdayTotal} participants`, 14, 85);
-  doc.text(`Thursday Event: ${thursdayTotal} participants`, 14, 95);
+  let summaryY = 85;
+  for (const [session, total] of sessionTotals) {
+    doc.text(`${session}: ${total} participants`, 14, summaryY);
+    summaryY += 10;
+  }
 
   // Add location summary table
   const summaryData = locationStats.map((location, index) => [
     index + 1,
     location.name,
-    location.eventDate.includes('Tuesday') || location.eventDate === 'tuesday' ? 'Tuesday, Oct 28' : 'Thursday, Oct 30',
+    location.eventDate,
     location.registrationCount,
     location.maxCapacity,
     location.availableSpots > 0 ? 'Available' : 'Full'
@@ -198,7 +187,7 @@ export function generateSummaryPDF(locationStats: LocationStat[]) {
   autoTable(doc, {
     head: [['#', 'Location', 'Date', 'Registered', 'Capacity', 'Status']],
     body: summaryData,
-    startY: 110,
+    startY: summaryY + 5,
     styles: {
       fontSize: 9,
       cellPadding: 4,

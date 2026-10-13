@@ -2,84 +2,34 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Instagram, Facebook, Twitter, Mail, MapPin, Users } from 'lucide-react';
 
-interface LocationAvailability {
-  _id: string;
-  name: string;
-  address: string;
-  eventDate: string;
-  availableSpots: number;
-  totalSpots: number;
-  isAvailable: boolean;
-  description?: string;
-}
+import type { ActiveCrawlEvent } from '@/lib/crawls';
 
-async function getAvailability(): Promise<LocationAvailability[]> {
+// Always read live data so opening/closing a cycle shows up immediately
+export const dynamic = 'force-dynamic';
+
+async function getActiveEvents(): Promise<ActiveCrawlEvent[]> {
   try {
-    // Import the API function directly instead of using fetch
     const { getDatabase } = await import('@/lib/mongodb');
-    
-    const db = await getDatabase();
-    
-    // Get all events with their locations
-    const events = await db.collection('events').find({ isActive: true }).toArray();
-    
-    // Get all registrations
-    const registrations = await db.collection('registrations').find({}).toArray();
-    
-    // Create a map of location ID to event date
-    const locationToEventDate = new Map();
-    events.forEach(event => {
-      event.locationIds.forEach((locationId: { toString: () => string }) => {
-        const eventDate = event.date === '2024-10-28' ? 'tuesday' : 'thursday';
-        // Convert ObjectId to string for comparison
-        const locationIdStr = locationId.toString();
-        locationToEventDate.set(locationIdStr, eventDate);
-      });
-    });
-    
-    // Get all event locations
-    const locations = await db.collection('eventLocations').find({}).toArray();
-    
-    // Calculate availability for each location
-    const locationAvailability = locations.map(location => {
-      const registeredCount = registrations.filter(reg => 
-        reg.crawlLocation === location._id.toString()
-      ).length;
-      
-      const maxCapacity = location.maxCapacity || 20;
-      const availableSpots = Math.max(0, maxCapacity - registeredCount);
-      const isAvailable = availableSpots > 0;
-      const eventDate = locationToEventDate.get(location._id.toString()) || 'unknown';
-      
-      return {
-        _id: location._id.toString(),
-        name: location.name,
-        address: location.address,
-        eventDate,
-        availableSpots,
-        totalSpots: maxCapacity,
-        isAvailable,
-        description: location.description
-      };
-    });
-    
-    // Sort by event date, then by name
-    locationAvailability.sort((a, b) => {
-      if (a.eventDate !== b.eventDate) {
-        return a.eventDate === 'tuesday' ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-    
-    return locationAvailability;
+    const { getActiveCrawlEvents } = await import('@/lib/crawls');
+    return await getActiveCrawlEvents(await getDatabase());
   } catch (error) {
     console.error('Error fetching availability:', error);
     return [];
   }
 }
 
+function boroughList(event: ActiveCrawlEvent) {
+  const boroughs = [...new Set(event.locations.map(location => location.borough).filter(Boolean))] as string[];
+  if (boroughs.length <= 1) return boroughs.join('');
+  return `${boroughs.slice(0, -1).join(', ')} or ${boroughs[boroughs.length - 1]}`;
+}
+
 export default async function HomePage() {
-  const availability = await getAvailability();
+  const events = await getActiveEvents();
+  const availability = events.flatMap(event =>
+    event.locations.map(location => ({ ...location, dateLabel: event.dateLabel }))
+  );
+  const allFull = availability.length > 0 && availability.every(location => !location.isAvailable);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white relative overflow-hidden">
@@ -129,19 +79,19 @@ export default async function HomePage() {
 
         {/* Event Dates and Times */}
         <div className="text-center mb-16 space-y-8">
-          {/* Tuesday Event */}
-          <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
-            <h2 className="text-3xl font-bold mb-4" style={{color: '#ECC67F'}}>TUESDAY, OCTOBER 28</h2>
-            <p className="text-xl text-gray-800 mb-2">10 AM - 12 PM</p>
-            <p className="text-lg text-gray-700">MANHATTAN, QUEENS, OR THE BRONX</p>
-          </div>
-
-          {/* Thursday Event */}
-          <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
-            <h2 className="text-3xl font-bold mb-4" style={{color: '#ECC67F'}}>THURSDAY OCTOBER 30</h2>
-            <p className="text-xl text-gray-800 mb-2">10 AM - 12 PM</p>
-            <p className="text-lg text-gray-700">STATEN ISLAND OR BROOKLYN</p>
-          </div>
+          {events.map(event => (
+            <div key={event._id} className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
+              <h2 className="text-3xl font-bold mb-4 uppercase" style={{color: '#ECC67F'}}>{event.dateLabel}</h2>
+              <p className="text-xl text-gray-800 mb-2">{event.time}</p>
+              <p className="text-lg text-gray-700 uppercase">{boroughList(event) || event.title}</p>
+            </div>
+          ))}
+          {events.length === 0 && (
+            <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
+              <h2 className="text-3xl font-bold mb-4" style={{color: '#ECC67F'}}>DATES COMING SOON</h2>
+              <p className="text-lg text-gray-700">Check back for the next round of District 79 crawls.</p>
+            </div>
+          )}
         </div>
 
         {/* Call to Action Text */}
@@ -180,7 +130,7 @@ export default async function HomePage() {
                   <div className="flex items-center">
                     <MapPin className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
                     <span className="text-sm font-semibold uppercase">
-                      {location.eventDate === 'tuesday' ? 'Tuesday, Oct 28' : 'Thursday, Oct 30'}
+                      {location.dateLabel}
                     </span>
                   </div>
                   <div className={`flex items-center ${location.availableSpots > 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -202,7 +152,8 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Thank You Message */}
+        {/* Thank You Message (only once every location is full) */}
+        {allFull && (
         <div className="text-center mb-16">
           <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto border-2" style={{borderColor: '#ECC67F'}}>
             <h2 className="text-2xl font-bold mb-4" style={{color: '#ECC67F'}}>
@@ -219,6 +170,7 @@ export default async function HomePage() {
             </p>
           </div>
         </div>
+        )}
 
         {/* Registration Button */}
         <div className="text-center mb-16">
@@ -256,7 +208,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="text-sm text-gray-600">
-              © 2025 District 79. All rights reserved.
+              @ {new Date().getFullYear()} District 79. All rights reserved.
             </div>
             <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 text-sm text-gray-600">
               <a href="https://adulted.nyc" className="hover:opacity-75 transition-opacity">Adult Education</a>

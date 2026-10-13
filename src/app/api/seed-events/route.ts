@@ -1,9 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
+import { requireAdmin } from '@/lib/auth';
 import { Event, EventLocation } from '@/types/events';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // This wipes events and locations, so it must never be publicly callable
+    const auth = await requireAdmin(request);
+    if (auth instanceof NextResponse) return auth;
+
     const db = await getDatabase();
     
     // Clear existing events and locations

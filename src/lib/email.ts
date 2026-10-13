@@ -77,7 +77,8 @@ export const getRegistrationConfirmationEmail = (data: {
   crawlLocationAddress?: string;
   time: string;
 }) => {
-  const dateDisplay = data.crawlDate === 'tuesday' ? 'Tuesday, October 28, 2024' : 'Thursday, October 30, 2024';
+  // crawlDate is a display label (e.g. "Friday, November 6, 2026")
+  const dateDisplay = data.crawlDate;
   const locationDisplay = data.crawlLocationAddress 
     ? `${data.crawlLocationName} - ${data.crawlLocationAddress}`
     : data.crawlLocationName;
@@ -209,7 +210,8 @@ export const getAdminNotificationEmail = (data: {
   crawlLocationAddress?: string;
   availableSpots: number;
 }) => {
-  const dateDisplay = data.crawlDate === 'tuesday' ? 'Tuesday, October 28, 2024' : 'Thursday, October 30, 2024';
+  // crawlDate is a display label (e.g. "Friday, November 6, 2026")
+  const dateDisplay = data.crawlDate;
   const locationDisplay = data.crawlLocationAddress 
     ? `${data.crawlLocationName} - ${data.crawlLocationAddress}`
     : data.crawlLocationName;
@@ -327,7 +329,8 @@ export const getReminderEmail = (data: {
   crawlLocationAddress?: string;
   time: string;
 }) => {
-  const dateDisplay = data.crawlDate === 'tuesday' ? 'Tuesday, October 28, 2024' : 'Thursday, October 30, 2024';
+  // crawlDate is a display label (e.g. "Friday, November 6, 2026")
+  const dateDisplay = data.crawlDate;
   const locationDisplay = data.crawlLocationAddress 
     ? `${data.crawlLocationName} - ${data.crawlLocationAddress}`
     : data.crawlLocationName;
