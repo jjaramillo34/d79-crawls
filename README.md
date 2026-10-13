@@ -158,22 +158,33 @@ This will create:
 
 ## API Endpoints
 
-### GET /api/availability
-Returns current availability for both crawl dates.
+### GET /api/location-availability
+Returns the sessions that are open for registration (the active cycle), with live seat counts per location.
 
 **Response:**
 ```json
 {
-  "tuesday": {
-    "total": 20,
-    "registered": 5,
-    "available": 15
-  },
-  "thursday": {
-    "total": 20,
-    "registered": 8,
-    "available": 12
-  }
+  "events": [
+    {
+      "_id": "ObjectId",
+      "title": "District 79 Fall Crawls - Tuesday",
+      "date": "2026-11-03",
+      "dateLabel": "Tuesday, November 3, 2026",
+      "time": "10:00 AM - 12:00 PM",
+      "locations": [
+        {
+          "_id": "ObjectId",
+          "name": "Manhattan Referral Center",
+          "address": "269 West 15th Street, Manhattan, NY 10011",
+          "borough": "Manhattan",
+          "totalSpots": 20,
+          "registered": 5,
+          "availableSpots": 15,
+          "isAvailable": true
+        }
+      ]
+    }
+  ]
 }
 ```
 
