@@ -148,15 +148,17 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
   const nothingToCreate = preview !== null && preview.summary.sessionsToCreate === 0;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold" style={{color: '#ECC67F'}}>Crawl Sessions</h2>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Crawl Sessions</h2>
+          <p className="text-sm text-gray-500">All crawl dates, locations and capacity, including cloned future cycles</p>
+        </div>
         <div className="flex space-x-2">
           <button
             onClick={loadSessions}
             disabled={loading}
-            className="flex items-center text-sm px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
-            style={{borderColor: '#ECC67F', color: '#ECC67F'}}
+            className="flex items-center text-sm px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -164,7 +166,7 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
           <button
             onClick={openModal}
             disabled={sourceYears.length === 0}
-            className="flex items-center text-white px-4 py-2 rounded font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="flex items-center text-gray-900 px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             style={{backgroundColor: '#ECC67F'}}
           >
             <Copy className="h-4 w-4 mr-2" />
@@ -190,7 +192,7 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-gray-600 border-b">
+            <tr className="text-left text-gray-500 border-b border-gray-200">
               <th className="py-2 pr-4">Date</th>
               <th className="py-2 pr-4">Session</th>
               <th className="py-2 pr-4">Time</th>
@@ -201,7 +203,7 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
           </thead>
           <tbody>
             {sessions.map(session => (
-              <tr key={session._id} className="border-b last:border-0 align-top">
+              <tr key={session._id} className="border-b border-gray-100 last:border-0 align-top">
                 <td className="py-3 pr-4 whitespace-nowrap font-semibold">{session.date}</td>
                 <td className="py-3 pr-4">
                   {session.title}
@@ -236,9 +238,9 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 border-2 max-h-[90vh] overflow-y-auto" style={{borderColor: '#ECC67F'}}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold" style={{color: '#ECC67F'}}>Clone Schedule / New Cycle</h3>
+              <h3 className="text-xl font-bold text-gray-900">Clone Schedule / New Cycle</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <X className="h-5 w-5" />
               </button>
@@ -315,15 +317,14 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="text-sm px-4 py-2 rounded border hover:bg-gray-50"
-                style={{borderColor: '#ECC67F', color: '#ECC67F'}}
+                className="text-sm px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClone}
                 disabled={cloning || previewLoading || !preview || nothingToCreate}
-                className="text-white px-4 py-2 rounded font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="text-gray-900 px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                 style={{backgroundColor: '#ECC67F'}}
               >
                 {cloning ? 'Creating…' : nothingToCreate ? 'Already cloned' : 'Create sessions'}
