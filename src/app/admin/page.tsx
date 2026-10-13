@@ -410,7 +410,15 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'overview' && <OverviewTab totalRegistrations={totalRegistrations} locationStats={locationStats} events={events} />}
-        {activeTab === 'registrations' && <RegistrationsTab key={cycle ?? 'none'} locationStats={locationStats} events={events} />}
+        {activeTab === 'registrations' && (
+          <RegistrationsTab
+            key={cycle ?? 'none'}
+            locationStats={locationStats}
+            events={events}
+            onChanged={() => loadDashboard(cycle)}
+            onUnauthorized={handleUnauthorized}
+          />
+        )}
         {activeTab === 'sessions' && (
           <CrawlSessionsPanel onUnauthorized={handleUnauthorized} onChanged={() => loadDashboard()} />
         )}

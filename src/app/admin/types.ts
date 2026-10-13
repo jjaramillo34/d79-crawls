@@ -1,4 +1,5 @@
 export interface Registration {
+  _id: string;
   firstName: string;
   lastName: string;
   email: string;
