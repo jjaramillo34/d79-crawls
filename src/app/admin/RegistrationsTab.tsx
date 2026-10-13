@@ -1,18 +1,25 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
-import { BRAND_TEXT, DashboardEvent, LocationStat } from './types';
+import { Search, Pencil, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { BRAND_TEXT, DashboardEvent, LocationStat, Registration } from './types';
+import EditRegistrationModal from './EditRegistrationModal';
 
 interface RegistrationsTabProps {
   locationStats: LocationStat[];
   events: DashboardEvent[];
+  onChanged: () => Promise<void> | void;
+  onUnauthorized: () => void;
 }
 
 type SortKey = 'name' | 'school' | 'location' | 'registeredAt';
 
-export default function RegistrationsTab({ locationStats, events }: RegistrationsTabProps) {
+export default function RegistrationsTab({ locationStats, events, onChanged, onUnauthorized }: RegistrationsTabProps) {
   const [query, setQuery] = useState('');
+  const [editing, setEditing] = useState<{ registration: Registration; locationId: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [eventId, setEventId] = useState('all');
   const [locationId, setLocationId] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -43,6 +50,31 @@ export default function RegistrationsTab({ locationStats, events }: Registration
         }
       });
   }, [rows, query, eventId, locationId, sortKey]);
+
+  const handleDelete = async (registration: Registration) => {
+    setDeleting(true);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/admin/registrations/${registration._id}`, { method: 'DELETE' });
+      if (response.status === 401) return onUnauthorized();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete registration');
+      setConfirmDelete(null);
+      setNotice({ type: 'success', text: `Deleted registration for ${registration.firstName} ${registration.lastName}` });
+      await onChanged();
+    } catch (error) {
+      setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Failed to delete registration' });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleSaved = async () => {
+    const name = editing ? `${editing.registration.firstName} ${editing.registration.lastName}` : 'attendee';
+    setEditing(null);
+    setNotice({ type: 'success', text: `Updated registration for ${name}` });
+    await onChanged();
+  };
 
   const visibleLocations = locationStats.filter(location => eventId === 'all' || location.eventId === eventId);
 
@@ -94,6 +126,15 @@ export default function RegistrationsTab({ locationStats, events }: Registration
         </select>
       </div>
 
+      {notice && (
+        <div className={`mx-4 mt-4 p-3 rounded-lg text-sm flex items-center ${
+          notice.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          {notice.type === 'success' ? <CheckCircle className="h-4 w-4 mr-2" /> : <AlertCircle className="h-4 w-4 mr-2" />}
+          <span>{notice.text}</span>
+        </div>
+      )}
+
       <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
         Showing {filtered.length} of {rows.length} attendees
       </div>
@@ -107,11 +148,12 @@ export default function RegistrationsTab({ locationStats, events }: Registration
               <SortHeader label="School" value="school" />
               <SortHeader label="Location" value="location" />
               <SortHeader label="Registered" value="registeredAt" />
+              <th className="py-3 px-4"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((row, index) => (
-              <tr key={`${row.locationId}-${row.email}-${index}`} className="border-t border-gray-100 hover:bg-amber-50/40">
+              <tr key={row._id || `${row.locationId}-${row.email}-${index}`} className="border-t border-gray-100 hover:bg-amber-50/40">
                 <td className="py-3 px-4 font-medium text-gray-900 whitespace-nowrap">{row.firstName} {row.lastName}</td>
                 <td className="py-3 px-4">
                   <a href={`mailto:${row.email}`} className="hover:underline" style={{color: BRAND_TEXT}}>{row.email}</a>
@@ -124,16 +166,66 @@ export default function RegistrationsTab({ locationStats, events }: Registration
                 <td className="py-3 px-4 text-gray-500 whitespace-nowrap">
                   {row.registeredAt ? new Date(row.registeredAt).toLocaleDateString() : '—'}
                 </td>
+                <td className="py-3 px-4 text-right whitespace-nowrap">
+                  {confirmDelete === row._id ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="text-xs text-gray-600">Delete?</span>
+                      <button
+                        onClick={() => handleDelete(row)}
+                        disabled={deleting}
+                        className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {deleting ? 'Deleting…' : 'Yes'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex gap-1">
+                      <button
+                        onClick={() => { setNotice(null); setEditing({ registration: row, locationId: row.locationId }); }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                        title="Edit registration"
+                        aria-label={`Edit registration for ${row.firstName} ${row.lastName}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => { setNotice(null); setConfirmDelete(row._id); }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600"
+                        title="Delete registration"
+                        aria-label={`Delete registration for ${row.firstName} ${row.lastName}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-gray-500">No attendees match these filters</td>
+                <td colSpan={6} className="py-10 text-center text-gray-500">No attendees match these filters</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <EditRegistrationModal
+          registration={editing.registration}
+          currentLocationId={editing.locationId}
+          locationStats={locationStats}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+          onUnauthorized={onUnauthorized}
+        />
+      )}
     </div>
   );
 }

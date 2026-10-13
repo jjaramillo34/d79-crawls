@@ -12,6 +12,20 @@ export function isValidDateString(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+/** Today's date (YYYY-MM-DD) in New York, where the crawls happen. */
+export function todayInNewYork(now = new Date()): string {
+  // en-CA formats as YYYY-MM-DD
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+}
+
+export function addDays(date: string, days: number): string {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
 /** Formats a YYYY-MM-DD date without timezone drift. */
 export function formatEventDate(date: string, style: 'long' | 'short' = 'long'): string {
   if (!isValidDateString(date)) return String(date);

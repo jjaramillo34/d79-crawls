@@ -270,6 +270,8 @@ Seeds the database with event locations and details. (Admin only)
 ### Environment Variables for Production
 
 - `MONGODB_URI`: Your MongoDB connection string
+- `EMAIL_SERVICE`: `power-automate`, `sendgrid`, or `smtp`
+- `POWER_AUTOMATE_EMAIL_URL` and `REMINDERS_API_KEY`: when sending email and scheduled reminders through Power Automate. See [docs/power-automate.md](docs/power-automate.md)
 
 ## Security Features
 

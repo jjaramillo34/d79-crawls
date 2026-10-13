@@ -1,10 +1,12 @@
 export interface Registration {
+  _id: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
   school: string;
   registeredAt: string;
+  reminderSentAt?: string | null;
 }
 
 export interface LocationStat {

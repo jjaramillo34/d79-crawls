@@ -52,12 +52,14 @@ export async function GET(request: NextRequest) {
             maxCapacity,
             availableSpots: Math.max(0, maxCapacity - regs.length),
             registrations: regs.map(reg => ({
+              _id: reg._id.toString(),
               firstName: reg.firstName,
               lastName: reg.lastName,
               email: reg.email,
               phone: reg.phone,
               school: reg.school,
-              registeredAt: reg.createdAt
+              registeredAt: reg.createdAt,
+              reminderSentAt: reg.reminderSentAt ?? null
             }))
           };
         })
