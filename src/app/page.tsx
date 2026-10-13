@@ -256,7 +256,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="text-sm text-gray-600">
-              © 2025 District 79. All rights reserved.
+              @ {new Date().getFullYear()} District 79. All rights reserved.
             </div>
             <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 text-sm text-gray-600">
               <a href="https://adulted.nyc" className="hover:opacity-75 transition-opacity">Adult Education</a>

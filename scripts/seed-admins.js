@@ -8,15 +8,17 @@
 // Seeded/reset accounts must choose a new password on first sign-in.
 // Extra accounts can be added with SEED_ADMIN_EMAILS="a@schools.nyc.gov,b@schools.nyc.gov".
 
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config({ path: '.env.local' });
+// Fall back to .env.local whenever MONGODB_URI isn't already set in the shell
+if (!process.env.MONGODB_URI) {
+  require('dotenv').config({ path: '.env.local', quiet: true });
 }
 
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/d79-crawls';
+// No localhost default: silently seeding a local database looks like success but nobody can sign in
+const MONGODB_URI = process.env.MONGODB_URI;
 const RESET = process.env.RESET_ADMIN_PASSWORDS === 'true';
 const DEFAULT_PASSWORD = process.env.SEED_ADMIN_DEFAULT_PASSWORD;
 const MIN_PASSWORD_LENGTH = 12;
@@ -41,11 +43,17 @@ async function seedAdmins() {
     return;
   }
 
+  if (!MONGODB_URI) {
+    console.error('❌ MONGODB_URI is not set (in the shell or .env.local)');
+    process.exitCode = 1;
+    return;
+  }
+
   const client = new MongoClient(MONGODB_URI);
 
   try {
     await client.connect();
-    console.log('Connected to MongoDB');
+    console.log(`Connected to MongoDB at ${new URL(MONGODB_URI).host} (database: d79-crawls)`);
 
     const users = client.db('d79-crawls').collection('adminUsers');
     await users.createIndex({ email: 1 }, { unique: true });
