@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Calendar, MapPin, Clock, CheckCircle, AlertCircle, Mail, User, Building } from 'lucide-react';
@@ -47,6 +47,18 @@ export default function RegisterPage() {
   useEffect(() => {
     fetchLocations();
   }, []);
+
+  // Links from the homepage (/register?location=<id>) pre-select that session and location, once
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (preselected.current || events.length === 0) return;
+    preselected.current = true;
+    const locationId = new URLSearchParams(window.location.search).get('location');
+    const event = events.find(e => e.locations.some(loc => loc._id === locationId && loc.isAvailable));
+    if (locationId && event) {
+      setFormData(prev => ({ ...prev, eventId: event._id, crawlLocation: locationId }));
+    }
+  }, [events]);
 
   const fetchLocations = async () => {
     try {
@@ -177,7 +189,7 @@ export default function RegisterPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Available:</span>
                       <span className={`font-bold ${openLocations > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {openLocations} locations
+                        {openLocations} {openLocations === 1 ? 'location' : 'locations'}
                       </span>
                     </div>
                   </div>
@@ -374,7 +386,7 @@ export default function RegisterPage() {
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Calendar className="h-5 w-5 mr-3" />
-                  <span>{events.map(event => event.dateLabel).join(' & ') || 'To be announced'}</span>
+                  <span>{[...new Set(events.map(event => event.dateLabel))].join(' & ') || 'To be announced'}</span>
                 </div>
               </div>
               <div className="space-y-3">
