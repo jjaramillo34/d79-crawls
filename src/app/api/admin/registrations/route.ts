@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
+import { requireAdmin } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const { password } = await request.json();
-    
-    // Check password against environment variable
-    const adminPassword = process.env.ADMIN_PASSWORD || 'district79admin';
-    
-    if (password !== adminPassword) {
-      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
-    }
+    const auth = await requireAdmin(request);
+    if (auth instanceof NextResponse) return auth;
     
     const db = await getDatabase();
     
     // Get all registrations
     const registrations = await db.collection('registrations').find({}).toArray();
     
-    // Get all locations
-    const locations = await db.collection('eventLocations').find({}).toArray();
-    
     // Get all events
     const events = await db.collection('events').find({ isActive: true }).toArray();
+    
+    // Only locations attached to active events (cloned future cycles stay out of this view)
+    const activeLocationIds = events.flatMap(event => event.locationIds || []);
+    const locations = await db.collection('eventLocations').find({ _id: { $in: activeLocationIds } }).toArray();
     
     // Create a map of location ID to event date
     const locationToEventDate = new Map();

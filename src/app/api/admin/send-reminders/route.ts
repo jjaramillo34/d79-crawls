@@ -2,17 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
 import { sendEmail, getReminderEmail } from '@/lib/email';
 import { ObjectId } from 'mongodb';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { password, eventType } = await request.json();
-    
-    // Check password against environment variable
-    const adminPassword = process.env.ADMIN_PASSWORD || 'district79admin';
-    
-    if (password !== adminPassword) {
-      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
-    }
+    const auth = await requireAdmin(request);
+    if (auth instanceof NextResponse) return auth;
+
+    const { eventType } = await request.json();
 
     if (!eventType || !['tuesday', 'thursday'].includes(eventType)) {
       return NextResponse.json({ error: 'Invalid event type. Must be tuesday or thursday' }, { status: 400 });

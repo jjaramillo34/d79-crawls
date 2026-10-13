@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar, Download, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { MapPin, Users, Lock, Eye, EyeOff, Mail, Phone, Calendar, Download, FileText, Send, AlertCircle, CheckCircle, LogOut, KeyRound, X } from 'lucide-react';
 import Link from 'next/link';
 import { downloadParticipantsPDF, downloadSummaryPDF } from '@/lib/pdf-utils';
+import CrawlSessionsPanel from './CrawlSessionsPanel';
+import ChangePasswordForm from './ChangePasswordForm';
 
 interface Registration {
   firstName: string;
@@ -25,10 +27,18 @@ interface LocationStat {
   registrations: Registration[];
 }
 
+interface AdminInfo {
+  email: string;
+  name?: string;
+  mustChangePassword: boolean;
+}
+
 export default function AdminPage() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [admin, setAdmin] = useState<AdminInfo | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [totalRegistrations, setTotalRegistrations] = useState(0);
@@ -37,6 +47,41 @@ export default function AdminPage() {
   const [sendingReminders, setSendingReminders] = useState<{ [key: string]: boolean }>({});
   const [reminderResults, setReminderResults] = useState<{ [key: string]: { success: boolean; emailsSent?: number; error?: string } | null }>({});
   const [showReminderPreview, setShowReminderPreview] = useState<string | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+
+  const handleUnauthorized = useCallback(() => {
+    setAdmin(null);
+    setError('Your session has expired. Please sign in again.');
+  }, []);
+
+  const loadDashboard = useCallback(async () => {
+    const response = await fetch('/api/admin/registrations');
+    if (response.status === 401) return handleUnauthorized();
+    if (!response.ok) throw new Error('Failed to load registrations');
+
+    const data = await response.json();
+    setTotalRegistrations(data.totalRegistrations);
+    setLocationStats(data.locationStats);
+  }, [handleUnauthorized]);
+
+  // Restore an existing session on page load
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch('/api/admin/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          setAdmin(data.admin);
+          if (!data.admin.mustChangePassword) await loadDashboard();
+        }
+      } catch {
+        // Fall through to the login form
+      } finally {
+        setCheckingSession(false);
+      }
+    })();
+  }, [loadDashboard]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,26 +89,44 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/registrations', {
+      const response = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        setError('Invalid password');
+        setError(data.error || 'Invalid email or password');
         return;
       }
 
-      const data = await response.json();
-      setIsAuthenticated(true);
-      setTotalRegistrations(data.totalRegistrations);
-      setLocationStats(data.locationStats);
+      setPassword('');
+      setAdmin(data.admin);
+      if (!data.admin.mustChangePassword) await loadDashboard();
     } catch {
       setError('Failed to authenticate');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePasswordChanged = async () => {
+    setShowChangePassword(false);
+    setPasswordChanged(true);
+    const wasRequired = admin?.mustChangePassword;
+    setAdmin(prev => prev && { ...prev, mustChangePassword: false });
+    if (wasRequired) await loadDashboard();
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth/logout', { method: 'POST' }).catch(() => {});
+    setAdmin(null);
+    setError('');
+    setTotalRegistrations(0);
+    setLocationStats([]);
+    setShowChangePassword(false);
+    setPasswordChanged(false);
   };
 
   const handleSendReminders = async (eventType: 'tuesday' | 'thursday') => {
@@ -74,12 +137,10 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/send-reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          password, 
-          eventType 
-        }),
+        body: JSON.stringify({ eventType }),
       });
 
+      if (response.status === 401) return handleUnauthorized();
       const data = await response.json();
       
       if (!response.ok) {
@@ -119,7 +180,15 @@ export default function AdminPage() {
       );
   };
 
-  if (!isAuthenticated) {
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center">
+        <p className="text-gray-500">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!admin) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -129,10 +198,26 @@ export default function AdminPage() {
                 <Lock className="h-8 w-8" style={{color: '#ECC67F'}} />
               </div>
               <h1 className="text-2xl font-bold mb-2" style={{color: '#ECC67F'}}>Admin Access</h1>
-              <p className="text-gray-600">Enter password to view registrations</p>
+              <p className="text-gray-600">Sign in with your admin account</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none"
+                  placeholder="you@schools.nyc.gov"
+                  required
+                />
+              </div>
+
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   Password
@@ -141,15 +226,17 @@ export default function AdminPage() {
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none"
-                    placeholder="Enter admin password"
+                    placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -169,7 +256,7 @@ export default function AdminPage() {
                 className="w-full text-white px-6 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{backgroundColor: '#ECC67F'}}
               >
-                {loading ? 'Authenticating...' : 'Access Admin Panel'}
+                {loading ? 'Signing in...' : 'Sign In'}
               </button>
             </form>
 
@@ -184,6 +271,30 @@ export default function AdminPage() {
     );
   }
 
+  if (admin.mustChangePassword) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-xl shadow-lg p-8 border-2" style={{borderColor: '#ECC67F'}}>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{backgroundColor: '#ECC67F20'}}>
+                <KeyRound className="h-8 w-8" style={{color: '#ECC67F'}} />
+              </div>
+              <h1 className="text-2xl font-bold mb-2" style={{color: '#ECC67F'}}>Set Your Password</h1>
+              <p className="text-gray-600">You signed in with a one-time password. Choose your own to continue.</p>
+            </div>
+            <ChangePasswordForm onSuccess={handlePasswordChanged} onUnauthorized={handleUnauthorized} />
+            <div className="mt-6 text-center">
+              <button onClick={handleLogout} className="text-sm hover:underline" style={{color: '#ECC67F'}}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -191,7 +302,7 @@ export default function AdminPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2" style={{color: '#ECC67F'}}>Registration Dashboard</h1>
-            <p className="text-gray-600">D79 Fall Crawls - Admin Panel</p>
+            <p className="text-gray-600">D79 Fall Crawls - Admin Panel · Signed in as {admin.email}</p>
           </div>
           <div className="flex items-center space-x-4">
             <button
@@ -233,8 +344,49 @@ export default function AdminPage() {
             >
               Back to Home
             </Link>
+            <button
+              onClick={() => { setPasswordChanged(false); setShowChangePassword(true); }}
+              className="flex items-center px-4 py-2 rounded-lg font-semibold border hover:bg-gray-50 transition-colors"
+              style={{borderColor: '#ECC67F', color: '#ECC67F'}}
+            >
+              <KeyRound className="h-4 w-4 mr-2" />
+              Change Password
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center px-4 py-2 rounded-lg font-semibold border hover:bg-gray-50 transition-colors"
+              style={{borderColor: '#ECC67F', color: '#ECC67F'}}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </button>
           </div>
         </div>
+
+        {passwordChanged && (
+          <div className="mb-6 p-3 rounded-lg text-sm bg-green-50 text-green-800 border border-green-200 flex items-center">
+            <CheckCircle className="h-4 w-4 mr-2" />
+            <span>Password updated. Any other sessions for your account have been signed out.</span>
+          </div>
+        )}
+
+        {showChangePassword && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border-2" style={{borderColor: '#ECC67F'}}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold" style={{color: '#ECC67F'}}>Change Password</h3>
+                <button onClick={() => setShowChangePassword(false)} className="text-gray-500 hover:text-gray-700" aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <ChangePasswordForm
+                onSuccess={handlePasswordChanged}
+                onUnauthorized={handleUnauthorized}
+                onCancel={() => setShowChangePassword(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Total Stats */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>
@@ -246,6 +398,9 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+
+        {/* Crawl Session Management */}
+        <CrawlSessionsPanel onUnauthorized={handleUnauthorized} />
 
         {/* Reminder Email Section */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2" style={{borderColor: '#ECC67F'}}>

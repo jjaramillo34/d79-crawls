@@ -23,8 +23,9 @@ export async function GET() {
       });
     });
     
-    // Get all event locations
-    const locations = await db.collection('eventLocations').find({}).toArray();
+    // Only locations attached to active events (inactive/cloned cycles are not open for registration)
+    const activeLocationIds = events.flatMap(event => event.locationIds || []);
+    const locations = await db.collection('eventLocations').find({ _id: { $in: activeLocationIds } }).toArray();
     
     // Calculate availability for each location
     const locationAvailability = locations.map(location => {

@@ -11,13 +11,16 @@
     "seed:database": "node scripts/seed-database.js",
     "seed:prod": "NODE_ENV=production node scripts/seed-database.js",
     "seed:prod:force": "NODE_ENV=production FORCE_RESET=true node scripts/seed-database.js",
-    "test:connection": "node -e \"require('dotenv').config({ path: '.env.local' }); const { MongoClient } = require('mongodb'); const client = new MongoClient(process.env.MONGODB_URI); client.connect().then(() => { console.log('✅ Connected to MongoDB'); client.close(); }).catch(err => { console.error('❌ Connection failed:', err.message); });\""
+    "seed:admins": "node scripts/seed-admins.js",
+    "seed:admins:prod": "NODE_ENV=production node scripts/seed-admins.js",
+    "test:connection": "node -e \"require('dotenv').config({ path: '.env.local' }); const { MongoClient } = require('mongodb'); const client = new MongoClient(process.env.MONGODB_URI); client.connect().then(() => { console.log('\u2705 Connected to MongoDB'); client.close(); }).catch(err => { console.error('\u274c Connection failed:', err.message); });\""
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
     "@types/jspdf": "^1.3.3",
     "@types/mongodb": "^4.0.6",
     "@types/nodemailer": "^7.0.2",
+    "bcryptjs": "^3.0.3",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.544.0",
