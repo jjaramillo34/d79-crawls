@@ -25,11 +25,34 @@ export const createTransporter = () => {
   });
 };
 
-// Send email function - supports both SendGrid and SMTP
+// Hands the email to a Power Automate flow ("When an HTTP request is received" -> Outlook
+// "Send an email (V2)" -> "Response"), so mail goes out from a Microsoft 365 mailbox.
+// See docs/power-automate.md.
+const sendViaPowerAutomate = async ({ to, subject, html }: EmailOptions) => {
+  const response = await fetch(process.env.POWER_AUTOMATE_EMAIL_URL as string, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, subject, html }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Power Automate flow returned ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`);
+  }
+  return { success: true, messageId: response.headers.get('x-ms-workflow-run-id') ?? undefined };
+};
+
+// Send email function - supports Power Automate, SendGrid and SMTP
 export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
   try {
+    if (process.env.EMAIL_SERVICE === 'power-automate') {
+      if (!process.env.POWER_AUTOMATE_EMAIL_URL) {
+        throw new Error('EMAIL_SERVICE is power-automate but POWER_AUTOMATE_EMAIL_URL is not set');
+      }
+      return await sendViaPowerAutomate({ to, subject, html });
+    }
     // Use SendGrid if configured
-    if (process.env.EMAIL_SERVICE === 'sendgrid' && process.env.SENDGRID_API_KEY) {
+    else if (process.env.EMAIL_SERVICE === 'sendgrid' && process.env.SENDGRID_API_KEY) {
       const msg = {
         to,
         from: {
@@ -399,12 +422,12 @@ export const getReminderEmail = (data: {
     </head>
     <body>
       <div class="header">
-        <h1>🔔 Reminder: D79 Fall Crawl Tomorrow!</h1>
+        <h1>🔔 Reminder: Your D79 Fall Crawl is coming up!</h1>
       </div>
       <div class="content">
         <p>Dear ${data.firstName} ${data.lastName},</p>
         
-        <p>This is a friendly reminder that you are registered for the <strong>District 79 Fall Crawl</strong> happening tomorrow!</p>
+        <p>This is a friendly reminder that you are registered for the <strong>District 79 Fall Crawl</strong> happening on <strong>${dateDisplay}</strong>.</p>
         
         <div class="reminder-box">
           <h2 style="margin-top: 0; color: #1976D2;">📅 Your Event Details</h2>
@@ -435,7 +458,7 @@ export const getReminderEmail = (data: {
         <p><strong>Need to cancel or have questions?</strong><br>
         Contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a></p>
         
-        <p>We're excited to see you tomorrow!</p>
+        <p>We're excited to see you soon!</p>
         
         <p><strong>District 79 Team</strong><br>
         Alternative Schools & Programs</p>

@@ -422,7 +422,7 @@ export default function AdminPage() {
         {activeTab === 'sessions' && (
           <CrawlSessionsPanel onUnauthorized={handleUnauthorized} onChanged={() => loadDashboard()} />
         )}
-        {activeTab === 'reminders' && <RemindersTab locationStats={locationStats} events={events} onUnauthorized={handleUnauthorized} />}
+        {activeTab === 'reminders' && <RemindersTab locationStats={locationStats} events={events} onUnauthorized={handleUnauthorized} onSent={() => loadDashboard(cycle)} />}
         {activeTab === 'reports' && <ReportsTab locationStats={locationStats} events={events} />}
       </main>
 

@@ -8,11 +8,13 @@ interface RemindersTabProps {
   locationStats: LocationStat[];
   events: DashboardEvent[];
   onUnauthorized: () => void;
+  /** Reload dashboard data so "already reminded" counts update */
+  onSent: () => void;
 }
 
 type ReminderResult = { success: boolean; emailsSent?: number; error?: string } | null;
 
-export default function RemindersTab({ locationStats, events, onUnauthorized }: RemindersTabProps) {
+export default function RemindersTab({ locationStats, events, onUnauthorized, onSent }: RemindersTabProps) {
   const [sending, setSending] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, ReminderResult>>({});
   const [preview, setPreview] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export default function RemindersTab({ locationStats, events, onUnauthorized }: 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to send reminders');
       setResults(prev => ({ ...prev, [eventId]: data }));
+      onSent();
     } catch (error) {
       setResults(prev => ({
         ...prev,
@@ -54,17 +57,24 @@ export default function RemindersTab({ locationStats, events, onUnauthorized }: 
     <div className="grid lg:grid-cols-2 gap-6">
       {events.map(event => {
         const participants = participantsFor(event._id);
+        const reminded = participants.filter(participant => participant.reminderSentAt).length;
         const result = results[event._id];
 
         return (
           <div key={event._id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h3 className="text-lg font-semibold text-gray-900">{event.dateLabel}</h3>
-            <p className="text-sm text-gray-500 mb-4">{event.title} · {participants.length} recipients</p>
+            <p className="text-sm text-gray-500">{event.title} · {participants.length} recipients</p>
+            <p className="text-sm text-gray-500 mb-4">
+              {reminded === 0
+                ? 'No reminders sent yet'
+                : `${reminded} of ${participants.length} already reminded`}
+            </p>
 
             {confirming === event._id ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-3 text-sm">
                 <p className="text-gray-800 mb-3">
                   Send a reminder email to all {participants.length} attendees of this session now?
+                  {reminded > 0 && ` ${reminded} of them were already reminded and will get it again.`}
                 </p>
                 <div className="flex gap-2">
                   <button

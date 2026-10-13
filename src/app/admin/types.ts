@@ -6,6 +6,7 @@ export interface Registration {
   phone: string;
   school: string;
   registeredAt: string;
+  reminderSentAt?: string | null;
 }
 
 export interface LocationStat {

@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
               email: reg.email,
               phone: reg.phone,
               school: reg.school,
-              registeredAt: reg.createdAt
+              registeredAt: reg.createdAt,
+              reminderSentAt: reg.reminderSentAt ?? null
             }))
           };
         })
