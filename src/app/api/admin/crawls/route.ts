@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '@/lib/mongodb';
 import { requireAdmin } from '@/lib/auth';
+import { cycleOf, formatEventDate } from '@/lib/crawls';
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +37,10 @@ export async function GET(request: NextRequest) {
         _id: event._id.toString(),
         title: event.title,
         date: event.date,
+        dateLabel: formatEventDate(event.date, 'short'),
+        cycle: cycleOf(event.date),
         time: event.time,
+        description: event.description ?? '',
         isActive: !!event.isActive,
         clonedFromEventId: event.clonedFromEventId?.toString() ?? null,
         locations: eventLocations,
@@ -50,7 +54,9 @@ export async function GET(request: NextRequest) {
       sessions.filter(session => session.isActive).map(session => Number(String(session.date).slice(0, 4)))
     )].filter(year => !Number.isNaN(year)).sort((a, b) => b - a);
 
-    return NextResponse.json({ sessions, sourceYears });
+    const activeCycle = sessions.find(session => session.isActive)?.cycle ?? null;
+
+    return NextResponse.json({ sessions, sourceYears, activeCycle });
 
   } catch (error) {
     console.error('Error fetching crawl sessions:', error);

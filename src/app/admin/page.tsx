@@ -12,7 +12,7 @@ import OverviewTab from './OverviewTab';
 import RegistrationsTab from './RegistrationsTab';
 import RemindersTab from './RemindersTab';
 import ReportsTab from './ReportsTab';
-import { BRAND, BRAND_TEXT, LocationStat } from './types';
+import { BRAND, BRAND_TEXT, DashboardEvent, LocationStat } from './types';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -40,6 +40,10 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [totalRegistrations, setTotalRegistrations] = useState(0);
   const [locationStats, setLocationStats] = useState<LocationStat[]>([]);
+  const [events, setEvents] = useState<DashboardEvent[]>([]);
+  const [cycle, setCycle] = useState<number | null>(null);
+  const [cycles, setCycles] = useState<number[]>([]);
+  const [activeCycle, setActiveCycle] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,14 +55,20 @@ export default function AdminPage() {
     setError('Your session has expired. Please sign in again.');
   }, []);
 
-  const loadDashboard = useCallback(async () => {
-    const response = await fetch('/api/admin/registrations');
+  // Without a cycle, the server returns the cycle that is open for registration
+  const loadDashboard = useCallback(async (requestedCycle?: number | null) => {
+    const query = requestedCycle ? `?cycle=${requestedCycle}` : '';
+    const response = await fetch(`/api/admin/registrations${query}`);
     if (response.status === 401) return handleUnauthorized();
     if (!response.ok) throw new Error('Failed to load registrations');
 
     const data = await response.json();
     setTotalRegistrations(data.totalRegistrations);
     setLocationStats(data.locationStats);
+    setEvents(data.events);
+    setCycle(data.cycle);
+    setCycles(data.cycles);
+    setActiveCycle(data.activeCycle);
   }, [handleUnauthorized]);
 
   // Keep the selected tab in the URL hash so reloads and links land on the same tab
@@ -75,7 +85,7 @@ export default function AdminPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadDashboard();
+      await loadDashboard(cycle);
     } finally {
       setRefreshing(false);
     }
@@ -266,7 +276,7 @@ export default function AdminPage() {
       {/* Top bar */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-16 gap-3">
             <div className="flex items-center min-w-0">
               <span className="w-9 h-9 rounded-lg flex items-center justify-center mr-3 flex-shrink-0" style={{backgroundColor: BRAND}}>
                 <LayoutDashboard className="h-5 w-5 text-gray-900" />
@@ -278,6 +288,19 @@ export default function AdminPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {cycles.length > 0 && (
+                <select
+                  value={cycle ?? ''}
+                  onChange={(e) => loadDashboard(Number(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none bg-white"
+                  aria-label="Cycle"
+                  title="Which year's registrations to show"
+                >
+                  {cycles.map(year => (
+                    <option key={year} value={year}>{year}{year === activeCycle ? ' · Open' : ''}</option>
+                  ))}
+                </select>
+              )}
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -380,11 +403,19 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === 'overview' && <OverviewTab totalRegistrations={totalRegistrations} locationStats={locationStats} />}
-        {activeTab === 'registrations' && <RegistrationsTab locationStats={locationStats} />}
-        {activeTab === 'sessions' && <CrawlSessionsPanel onUnauthorized={handleUnauthorized} />}
-        {activeTab === 'reminders' && <RemindersTab locationStats={locationStats} onUnauthorized={handleUnauthorized} />}
-        {activeTab === 'reports' && <ReportsTab locationStats={locationStats} />}
+        {cycle !== null && activeTab !== 'sessions' && cycle !== activeCycle && (
+          <div className="mb-6 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
+            You are viewing the {cycle} cycle, which is closed for registration.
+          </div>
+        )}
+
+        {activeTab === 'overview' && <OverviewTab totalRegistrations={totalRegistrations} locationStats={locationStats} events={events} />}
+        {activeTab === 'registrations' && <RegistrationsTab key={cycle ?? 'none'} locationStats={locationStats} events={events} />}
+        {activeTab === 'sessions' && (
+          <CrawlSessionsPanel onUnauthorized={handleUnauthorized} onChanged={() => loadDashboard()} />
+        )}
+        {activeTab === 'reminders' && <RemindersTab locationStats={locationStats} events={events} onUnauthorized={handleUnauthorized} />}
+        {activeTab === 'reports' && <ReportsTab locationStats={locationStats} events={events} />}
       </main>
 
       {showChangePassword && (

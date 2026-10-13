@@ -1,19 +1,15 @@
 'use client';
 
 import { Users, Armchair, Percent, MapPin, Calendar } from 'lucide-react';
-import { BRAND, BRAND_TEXT, CrawlDay, LocationStat, isOnDay } from './types';
+import { BRAND, BRAND_TEXT, DashboardEvent, LocationStat, locationsForEvent } from './types';
 
 interface OverviewTabProps {
   totalRegistrations: number;
   locationStats: LocationStat[];
+  events: DashboardEvent[];
 }
 
-const DAYS: { day: CrawlDay; label: string }[] = [
-  { day: 'tuesday', label: 'Tuesday, Oct 28' },
-  { day: 'thursday', label: 'Thursday, Oct 30' },
-];
-
-export default function OverviewTab({ totalRegistrations, locationStats }: OverviewTabProps) {
+export default function OverviewTab({ totalRegistrations, locationStats, events }: OverviewTabProps) {
   const totalCapacity = locationStats.reduce((sum, location) => sum + location.maxCapacity, 0);
   const fillRate = totalCapacity > 0 ? Math.round((totalRegistrations / totalCapacity) * 100) : 0;
   const fullLocations = locationStats.filter(location => location.availableSpots === 0).length;
@@ -42,18 +38,24 @@ export default function OverviewTab({ totalRegistrations, locationStats }: Overv
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {DAYS.map(({ day, label }) => {
-          const locations = locationStats.filter(location => isOnDay(location, day));
+        {events.length === 0 && (
+          <p className="text-sm text-gray-500">No sessions in this cycle.</p>
+        )}
+        {events.map(event => {
+          const locations = locationsForEvent(locationStats, event._id);
           const registered = locations.reduce((sum, location) => sum + location.registrationCount, 0);
           const capacity = locations.reduce((sum, location) => sum + location.maxCapacity, 0);
 
           return (
-            <div key={day} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 flex items-center">
-                  <Calendar className="h-4 w-4 mr-2" style={{color: BRAND_TEXT}} />
-                  {label}
-                </h3>
+            <div key={event._id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-start justify-between mb-4 gap-3">
+                <div>
+                  <h3 className="font-semibold text-gray-900 flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" style={{color: BRAND_TEXT}} />
+                    {event.dateLabel}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5 ml-6">{event.title} · {event.time}</p>
+                </div>
                 <span className="text-sm text-gray-500">{registered} / {capacity} seats</span>
               </div>
 

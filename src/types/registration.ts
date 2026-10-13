@@ -4,7 +4,9 @@ export interface Registration {
   firstName: string;
   lastName: string;
   school: string;
-  crawlDate: 'tuesday' | 'thursday';
+  // Event date (YYYY-MM-DD); registrations before multi-cycle support store 'tuesday' | 'thursday'
+  crawlDate: string;
+  eventId?: string;
   crawlLocation: string;
   crawlLocationAddress?: string;
   crawlLocationName?: string;

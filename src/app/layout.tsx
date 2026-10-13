@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "D79 Crawls Registration",
-  description: "D79 Crawls Week of October 28th",
+  description: "District 79 Fall Crawls: site visits and information sessions for NYCPS staff",
 };
 
 export default function RootLayout({

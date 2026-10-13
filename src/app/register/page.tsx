@@ -9,10 +9,25 @@ interface LocationAvailability {
   _id: string;
   name: string;
   address: string;
-  eventDate: string;
+  borough?: string;
   availableSpots: number;
   totalSpots: number;
   isAvailable: boolean;
+}
+
+interface CrawlEvent {
+  _id: string;
+  title: string;
+  date: string;
+  dateLabel: string;
+  time: string;
+  locations: LocationAvailability[];
+}
+
+function boroughList(event: CrawlEvent) {
+  const boroughs = [...new Set(event.locations.map(location => location.borough).filter(Boolean))] as string[];
+  if (boroughs.length <= 1) return boroughs.join('');
+  return `${boroughs.slice(0, -1).join(', ')} or ${boroughs[boroughs.length - 1]}`;
 }
 
 export default function RegisterPage() {
@@ -21,11 +36,10 @@ export default function RegisterPage() {
     firstName: '',
     lastName: '',
     school: '',
-    crawlDate: '',
-    crawlLocation: '',
-    crawlLocationAddress: ''
+    eventId: '',
+    crawlLocation: ''
   });
-  const [availability, setAvailability] = useState<LocationAvailability[]>([]);
+  const [events, setEvents] = useState<CrawlEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
@@ -38,7 +52,7 @@ export default function RegisterPage() {
     try {
       const response = await fetch('/api/location-availability');
       const data = await response.json();
-      setAvailability(data.locations || []);
+      setEvents(data.events || []);
     } catch (error) {
       console.error('Error fetching locations:', error);
     } finally {
@@ -49,20 +63,12 @@ export default function RegisterPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    // If location is selected, also store the address
-    if (name === 'crawlLocation') {
-      const selectedLocation = getLocationOptions(formData.crawlDate).find(loc => loc.value === value);
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        crawlLocationAddress: selectedLocation?.address || ''
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      // Changing the session clears a location picked for a different session
+      ...(name === 'eventId' ? { crawlLocation: '' } : {})
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,9 +94,8 @@ export default function RegisterPage() {
           firstName: '',
           lastName: '',
           school: '',
-          crawlDate: '',
-          crawlLocation: '',
-          crawlLocationAddress: ''
+          eventId: '',
+          crawlLocation: ''
         });
         // Refresh availability
         fetchLocations();
@@ -104,11 +109,10 @@ export default function RegisterPage() {
     }
   };
 
-  const getLocationOptions = (date: string) => {
-    // Filter locations by date and only show those with available spots
-    const dateLocations = availability.filter(loc => 
-      loc.eventDate === date && loc.isAvailable
-    );
+  const getLocationOptions = (eventId: string) => {
+    // Only show locations with available spots for the chosen session
+    const dateLocations = (events.find(event => event._id === eventId)?.locations || [])
+      .filter(loc => loc.isAvailable);
     
     return dateLocations.map(loc => ({
       value: loc._id,
@@ -119,7 +123,7 @@ export default function RegisterPage() {
   };
 
   const isEmailValid = formData.email.endsWith('@schools.nyc.gov');
-  const isFormValid = isEmailValid && formData.firstName && formData.lastName && formData.school && formData.crawlDate && formData.crawlLocation;
+  const isFormValid = isEmailValid && formData.firstName && formData.lastName && formData.school && formData.eventId && formData.crawlLocation;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-white">
@@ -157,48 +161,35 @@ export default function RegisterPage() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Availability Status */}
-        {!loadingAvailability && availability.length > 0 && (
+        {!loadingAvailability && events.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Current Availability</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Tuesday Availability */}
-              <div className="border-2 rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
-                <div className="flex items-center mb-2">
-                  <Calendar className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="font-semibold">Tuesday, Oct 28</span>
-                </div>
-                <div className="text-sm text-gray-600 mb-2">Manhattan, Queens, or The Bronx</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Available:</span>
-                  <span className={`font-bold ${
-                    availability.filter(loc => loc.eventDate === 'tuesday' && loc.isAvailable).length > 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {availability.filter(loc => loc.eventDate === 'tuesday' && loc.isAvailable).length} locations
-                  </span>
-                </div>
-              </div>
-              
-              {/* Thursday Availability */}
-              <div className="border-2 rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
-                <div className="flex items-center mb-2">
-                  <Calendar className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                  <span className="font-semibold">Thursday, Oct 30</span>
-                </div>
-                <div className="text-sm text-gray-600 mb-2">Staten Island or Brooklyn</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Available:</span>
-                  <span className={`font-bold ${
-                    availability.filter(loc => loc.eventDate === 'thursday' && loc.isAvailable).length > 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {availability.filter(loc => loc.eventDate === 'thursday' && loc.isAvailable).length} locations
-                  </span>
-                </div>
-              </div>
+              {events.map(event => {
+                const openLocations = event.locations.filter(loc => loc.isAvailable).length;
+                return (
+                  <div key={event._id} className="border-2 rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
+                    <div className="flex items-center mb-2">
+                      <Calendar className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
+                      <span className="font-semibold">{event.dateLabel}</span>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">{boroughList(event) || event.title}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Available:</span>
+                      <span className={`font-bold ${openLocations > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {openLocations} locations
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
+        )}
+
+        {!loadingAvailability && events.length === 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center text-gray-700">
+            Registration is not open right now. Please check back soon.
           </div>
         )}
 
@@ -307,32 +298,33 @@ export default function RegisterPage() {
 
             {/* Crawl Date */}
             <div>
-              <label htmlFor="crawlDate" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="eventId" className="block text-sm font-medium text-gray-700 mb-2">
                 <Calendar className="h-4 w-4 inline mr-1" />
                 Select Crawl Date *
               </label>
               <select
-                id="crawlDate"
-                name="crawlDate"
-                value={formData.crawlDate}
+                id="eventId"
+                name="eventId"
+                value={formData.eventId}
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 <option value="">Choose a date</option>
-                <option value="tuesday" disabled={availability.filter(loc => loc.eventDate === 'tuesday' && loc.isAvailable).length === 0}>
-                  Tuesday, October 28 (Manhattan, Queens, or The Bronx)
-                  {availability.filter(loc => loc.eventDate === 'tuesday' && loc.isAvailable).length === 0 && ' - FULL'}
-                </option>
-                <option value="thursday" disabled={availability.filter(loc => loc.eventDate === 'thursday' && loc.isAvailable).length === 0}>
-                  Thursday, October 30 (Staten Island or Brooklyn)
-                  {availability.filter(loc => loc.eventDate === 'thursday' && loc.isAvailable).length === 0 && ' - FULL'}
-                </option>
+                {events.map(event => {
+                  const isFull = event.locations.every(loc => !loc.isAvailable);
+                  const boroughs = boroughList(event);
+                  return (
+                    <option key={event._id} value={event._id} disabled={isFull}>
+                      {event.dateLabel}{boroughs ? ` (${boroughs})` : ''}{isFull ? ' - FULL' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
             {/* Crawl Location */}
-            {formData.crawlDate && (
+            {formData.eventId && (
               <div>
                 <label htmlFor="crawlLocation" className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin className="h-4 w-4 inline mr-1" />
@@ -347,7 +339,7 @@ export default function RegisterPage() {
                   required
                 >
                   <option value="">Choose a location</option>
-                  {getLocationOptions(formData.crawlDate).map(option => (
+                  {getLocationOptions(formData.eventId).map(option => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -378,11 +370,11 @@ export default function RegisterPage() {
               <div className="space-y-3">
                 <div className="flex items-center text-gray-600">
                   <Clock className="h-5 w-5 mr-3" />
-                  <span>10:00 AM - 12:00 PM</span>
+                  <span>{[...new Set(events.map(event => event.time))].join(' / ') || 'To be announced'}</span>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Calendar className="h-5 w-5 mr-3" />
-                  <span>October 28 & October 30, 2025</span>
+                  <span>{events.map(event => event.dateLabel).join(' & ') || 'To be announced'}</span>
                 </div>
               </div>
               <div className="space-y-3">

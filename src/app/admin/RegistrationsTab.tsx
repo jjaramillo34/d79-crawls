@@ -2,17 +2,18 @@
 
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import { BRAND_TEXT, CrawlDay, LocationStat, locationDay } from './types';
+import { BRAND_TEXT, DashboardEvent, LocationStat } from './types';
 
 interface RegistrationsTabProps {
   locationStats: LocationStat[];
+  events: DashboardEvent[];
 }
 
 type SortKey = 'name' | 'school' | 'location' | 'registeredAt';
 
-export default function RegistrationsTab({ locationStats }: RegistrationsTabProps) {
+export default function RegistrationsTab({ locationStats, events }: RegistrationsTabProps) {
   const [query, setQuery] = useState('');
-  const [day, setDay] = useState<CrawlDay | 'all'>('all');
+  const [eventId, setEventId] = useState('all');
   const [locationId, setLocationId] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey>('name');
 
@@ -22,14 +23,14 @@ export default function RegistrationsTab({ locationStats }: RegistrationsTabProp
       locationId: location._id,
       locationName: location.name,
       eventDate: location.eventDate,
-      day: locationDay(location),
+      eventId: location.eventId,
     }))
   ), [locationStats]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows
-      .filter(row => day === 'all' || row.day === day)
+      .filter(row => eventId === 'all' || row.eventId === eventId)
       .filter(row => locationId === 'all' || row.locationId === locationId)
       .filter(row => !q || [row.firstName, row.lastName, row.email, row.school]
         .some(value => value?.toLowerCase().includes(q)))
@@ -41,9 +42,9 @@ export default function RegistrationsTab({ locationStats }: RegistrationsTabProp
           default: return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
         }
       });
-  }, [rows, query, day, locationId, sortKey]);
+  }, [rows, query, eventId, locationId, sortKey]);
 
-  const visibleLocations = locationStats.filter(location => day === 'all' || locationDay(location) === day);
+  const visibleLocations = locationStats.filter(location => eventId === 'all' || location.eventId === eventId);
 
   const SortHeader = ({ label, value }: { label: string; value: SortKey }) => (
     <th className="py-3 px-4 font-medium">
@@ -69,17 +70,17 @@ export default function RegistrationsTab({ locationStats }: RegistrationsTabProp
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-200"
           />
         </div>
-        <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm">
-          {(['all', 'tuesday', 'thursday'] as const).map(value => (
-            <button
-              key={value}
-              onClick={() => { setDay(value); setLocationId('all'); }}
-              className={`px-3 py-2 capitalize ${day === value ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            >
-              {value === 'all' ? 'All days' : value}
-            </button>
+        <select
+          value={eventId}
+          onChange={(e) => { setEventId(e.target.value); setLocationId('all'); }}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none bg-white"
+          aria-label="Filter by session"
+        >
+          <option value="all">All sessions</option>
+          {events.map(event => (
+            <option key={event._id} value={event._id}>{event.dateLabel} · {event.title}</option>
           ))}
-        </div>
+        </select>
         <select
           value={locationId}
           onChange={(e) => setLocationId(e.target.value)}

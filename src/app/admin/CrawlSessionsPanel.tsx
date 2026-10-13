@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar, Copy, X, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Calendar, Copy, X, AlertCircle, CheckCircle, RefreshCw, Pencil, Power } from 'lucide-react';
+import EditSessionModal from './EditSessionModal';
 
 const DEFAULT_TARGET_DATE = '2026-11-06';
 
@@ -9,7 +10,10 @@ interface CrawlSession {
   _id: string;
   title: string;
   date: string;
+  dateLabel: string;
+  cycle: number;
   time: string;
+  description: string;
   isActive: boolean;
   clonedFromEventId: string | null;
   locations: { _id: string; name: string; borough?: string; maxCapacity: number; registrationCount: number }[];
@@ -39,11 +43,17 @@ interface ClonePlan {
 
 interface CrawlSessionsPanelProps {
   onUnauthorized: () => void;
+  /** Called after sessions change (edit/activate/clone) so the rest of the dashboard can reload */
+  onChanged?: () => void;
 }
 
-export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPanelProps) {
+export default function CrawlSessionsPanel({ onUnauthorized, onChanged }: CrawlSessionsPanelProps) {
   const [sessions, setSessions] = useState<CrawlSession[]>([]);
   const [sourceYears, setSourceYears] = useState<number[]>([]);
+  const [activeCycle, setActiveCycle] = useState<number | null>(null);
+  const [editing, setEditing] = useState<CrawlSession | null>(null);
+  const [confirmCycle, setConfirmCycle] = useState<number | null>(null);
+  const [activating, setActivating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -66,6 +76,7 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
       if (!response.ok) throw new Error(data.error || 'Failed to load crawl sessions');
       setSessions(data.sessions);
       setSourceYears(data.sourceYears);
+      setActiveCycle(data.activeCycle);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Failed to load crawl sessions');
     } finally {
@@ -137,6 +148,7 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
       setCloneSuccess(data.message);
       setPreview(null);
       await loadSessions();
+      onChanged?.();
       setShowModal(false);
     } catch (error) {
       setCloneError(error instanceof Error ? error.message : 'Failed to clone schedule');
@@ -145,6 +157,38 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
     }
   };
 
+  const handleActivate = async (cycle: number) => {
+    setActivating(true);
+    setCloneError('');
+    setCloneSuccess('');
+    try {
+      const response = await fetch('/api/admin/crawls/activate-cycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cycle }),
+      });
+      if (response.status === 401) return onUnauthorized();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to activate cycle');
+      setCloneSuccess(data.message);
+      setConfirmCycle(null);
+      await loadSessions();
+      onChanged?.();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to activate cycle');
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleSaved = async () => {
+    setEditing(null);
+    setCloneSuccess('Session updated');
+    await loadSessions();
+    onChanged?.();
+  };
+
+  const cycles = [...new Set(sessions.map(session => session.cycle))].sort((a, b) => b - a);
   const nothingToCreate = preview !== null && preview.summary.sessionsToCreate === 0;
 
   return (
@@ -152,7 +196,7 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Crawl Sessions</h2>
-          <p className="text-sm text-gray-500">All crawl dates, locations and capacity, including cloned future cycles</p>
+          <p className="text-sm text-gray-500">Each year is a cycle. Only one cycle is open for registration at a time.</p>
         </div>
         <div className="flex space-x-2">
           <button
@@ -189,52 +233,118 @@ export default function CrawlSessionsPanel({ onUnauthorized }: CrawlSessionsPane
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-200">
-              <th className="py-2 pr-4">Date</th>
-              <th className="py-2 pr-4">Session</th>
-              <th className="py-2 pr-4">Time</th>
-              <th className="py-2 pr-4">Locations</th>
-              <th className="py-2 pr-4 text-right">Registered / Capacity</th>
-              <th className="py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map(session => (
-              <tr key={session._id} className="border-b border-gray-100 last:border-0 align-top">
-                <td className="py-3 pr-4 whitespace-nowrap font-semibold">{session.date}</td>
-                <td className="py-3 pr-4">
-                  {session.title}
-                  {session.clonedFromEventId && <span className="ml-2 text-xs text-gray-500">(cloned)</span>}
-                </td>
-                <td className="py-3 pr-4 whitespace-nowrap">{session.time}</td>
-                <td className="py-3 pr-4 text-gray-600">
-                  {session.locations.map(location => (
-                    <div key={location._id}>{location.name} ({location.maxCapacity})</div>
-                  ))}
-                </td>
-                <td className="py-3 pr-4 text-right whitespace-nowrap">
-                  {session.registrationCount} / {session.totalCapacity}
-                </td>
-                <td className="py-3">
-                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                    session.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {session.isActive ? 'Active' : 'Inactive'}
+      {!loading && sessions.length === 0 && (
+        <p className="py-6 text-center text-gray-500">No crawl sessions found</p>
+      )}
+
+      <div className="space-y-6">
+        {cycles.map(cycle => {
+          const cycleSessions = sessions.filter(session => session.cycle === cycle);
+          const isOpen = cycle === activeCycle;
+
+          return (
+            <section key={cycle} className={`rounded-xl border ${isOpen ? 'border-green-200' : 'border-gray-200'}`}>
+              <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 rounded-t-xl ${isOpen ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-gray-900">{cycle} cycle</h3>
+                  <span className={`text-xs font-semibold px-2 py-1 rounded ${isOpen ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
+                    {isOpen ? 'Open for registration' : 'Closed'}
                   </span>
-                </td>
-              </tr>
-            ))}
-            {!loading && sessions.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-6 text-center text-gray-500">No crawl sessions found</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </div>
+
+                {!isOpen && (
+                  confirmCycle === cycle ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                      <span className="text-gray-700">
+                        Open {cycle} for registration{activeCycle ? ` and close ${activeCycle}` : ''}? Existing registrations are kept.
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleActivate(cycle)}
+                          disabled={activating}
+                          className="px-3 py-1.5 rounded-lg font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {activating ? 'Activating…' : 'Yes, activate'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmCycle(null)}
+                          className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmCycle(cycle)}
+                      className="flex items-center self-start md:self-auto text-sm px-3 py-1.5 rounded-lg border border-green-600 text-green-700 bg-white hover:bg-green-50 font-semibold"
+                    >
+                      <Power className="h-4 w-4 mr-1.5" />
+                      Activate {cycle}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b border-gray-200">
+                      <th className="py-2 px-4 font-medium">Date</th>
+                      <th className="py-2 pr-4 font-medium">Session</th>
+                      <th className="py-2 pr-4 font-medium">Time</th>
+                      <th className="py-2 pr-4 font-medium">Locations</th>
+                      <th className="py-2 pr-4 font-medium text-right">Registered / Capacity</th>
+                      <th className="py-2 pr-4"><span className="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cycleSessions.map(session => (
+                      <tr key={session._id} className="border-b border-gray-100 last:border-0 align-top">
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="font-semibold text-gray-900">{session.dateLabel}</div>
+                          <div className="text-xs text-gray-500">{session.date}</div>
+                        </td>
+                        <td className="py-3 pr-4">
+                          {session.title}
+                          {session.clonedFromEventId && <span className="ml-2 text-xs text-gray-500">(cloned)</span>}
+                        </td>
+                        <td className="py-3 pr-4 whitespace-nowrap">{session.time}</td>
+                        <td className="py-3 pr-4 text-gray-600">
+                          {session.locations.map(location => (
+                            <div key={location._id}>{location.name} ({location.maxCapacity})</div>
+                          ))}
+                        </td>
+                        <td className="py-3 pr-4 text-right whitespace-nowrap">
+                          {session.registrationCount} / {session.totalCapacity}
+                        </td>
+                        <td className="py-3 pr-4 text-right">
+                          <button
+                            onClick={() => setEditing(session)}
+                            className="inline-flex items-center text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                          >
+                            <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })}
       </div>
+
+      {editing && (
+        <EditSessionModal
+          session={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+          onUnauthorized={onUnauthorized}
+        />
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50">

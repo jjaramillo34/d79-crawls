@@ -2,18 +2,23 @@
 
 import { Download, FileText, MapPin } from 'lucide-react';
 import { downloadParticipantsPDF, downloadSummaryPDF } from '@/lib/pdf-utils';
-import { BRAND, BRAND_TEXT, LocationStat, locationDay } from './types';
+import { BRAND, BRAND_TEXT, DashboardEvent, LocationStat, locationsForEvent } from './types';
 
 interface ReportsTabProps {
   locationStats: LocationStat[];
+  events: DashboardEvent[];
 }
 
-export default function ReportsTab({ locationStats }: ReportsTabProps) {
+export default function ReportsTab({ locationStats, events }: ReportsTabProps) {
   const reports = [
-    { title: 'Summary', description: 'Registration totals by day and location', action: () => downloadSummaryPDF(locationStats) },
-    { title: 'Tuesday attendees', description: 'Sign-in sheets for Tuesday locations', action: () => downloadParticipantsPDF(locationStats, 'tuesday') },
-    { title: 'Thursday attendees', description: 'Sign-in sheets for Thursday locations', action: () => downloadParticipantsPDF(locationStats, 'thursday') },
-    { title: 'All attendees', description: 'Every registration across both days', action: () => downloadParticipantsPDF(locationStats, 'all') },
+    { key: 'summary', title: 'Summary', description: 'Registration totals by session and location', action: () => downloadSummaryPDF(locationStats) },
+    ...events.map(event => ({
+      key: event._id,
+      title: event.dateLabel,
+      description: `Sign-in sheets for ${event.title}`,
+      action: () => downloadParticipantsPDF(locationsForEvent(locationStats, event._id), `${event.dateLabel} - ${event.title}`),
+    })),
+    { key: 'all', title: 'All attendees', description: 'Every registration in this cycle', action: () => downloadParticipantsPDF(locationStats, 'All events') },
   ];
 
   return (
@@ -21,7 +26,7 @@ export default function ReportsTab({ locationStats }: ReportsTabProps) {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {reports.map(report => (
           <button
-            key={report.title}
+            key={report.key}
             onClick={report.action}
             className="text-left bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-amber-300 hover:shadow transition group"
           >
@@ -51,7 +56,7 @@ export default function ReportsTab({ locationStats }: ReportsTabProps) {
                 </div>
               </div>
               <button
-                onClick={() => downloadParticipantsPDF([location], locationDay(location))}
+                onClick={() => downloadParticipantsPDF([location], location.name)}
                 disabled={location.registrationCount === 0}
                 className="flex items-center text-sm px-3 py-1.5 rounded-lg border hover:bg-amber-50 disabled:opacity-40 whitespace-nowrap"
                 style={{borderColor: BRAND, color: BRAND_TEXT}}

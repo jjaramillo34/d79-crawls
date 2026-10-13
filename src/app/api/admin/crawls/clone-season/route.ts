@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Db, Document, ObjectId } from 'mongodb';
 import { getDatabase } from '@/lib/mongodb';
 import { requireAdmin } from '@/lib/auth';
+import { isValidDateString } from '@/lib/crawls';
 
 // Per-cycle state that must never be carried over into a new cycle
 const RESET_FIELDS = ['_id', 'cloneKey', 'registrationCount', 'registrations', 'attendees', 'registeredCount'];
@@ -10,12 +11,6 @@ function stripFields(doc: Document) {
   const copy = { ...doc };
   for (const field of RESET_FIELDS) delete copy[field];
   return copy;
-}
-
-function isValidDate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 const eventCloneKey = (sourceEventId: ObjectId, targetDate: string) =>
@@ -48,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (!Number.isInteger(sourceYear) || sourceYear < 2000 || sourceYear > 2100) {
       return NextResponse.json({ error: 'sourceYear must be a 4-digit year' }, { status: 400 });
     }
-    if (!isValidDate(targetDate)) {
+    if (!isValidDateString(targetDate)) {
       return NextResponse.json({ error: 'targetDate must be a valid YYYY-MM-DD date' }, { status: 400 });
     }
 

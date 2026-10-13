@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
 import { Registration } from '@/types/registration';
 import { sendEmail, getRegistrationConfirmationEmail, getAdminNotificationEmail } from '@/lib/email';
-import { ObjectId } from 'mongodb';
+import { getActiveCrawlEvents } from '@/lib/crawls';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, firstName, lastName, school, crawlDate, crawlLocation, crawlLocationAddress } = body;
+    const { firstName, lastName, school, crawlLocation } = body;
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
     
     // Validate email domain
-    if (!email.endsWith('@schools.nyc.gov')) {
+    if (!email.toLowerCase().endsWith('@schools.nyc.gov')) {
       return NextResponse.json(
         { error: 'Only @schools.nyc.gov email addresses are allowed' },
         { status: 400 }
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Validate required fields
-    if (!firstName || !lastName || !school || !crawlDate || !crawlLocation) {
+    if (!firstName || !lastName || !school || !crawlLocation) {
       return NextResponse.json(
         { error: 'All fields are required' },
         { status: 400 }
@@ -27,18 +28,31 @@ export async function POST(request: NextRequest) {
     
     const db = await getDatabase();
     
-    // Check if email is already registered
-    const existingRegistration = await db.collection('registrations').findOne({ email });
+    // The location must belong to a session that is currently open for registration
+    const activeEvents = await getActiveCrawlEvents(db);
+    const event = activeEvents.find(e => e.locations.some(location => location._id === crawlLocation));
+    const locationDetails = event?.locations.find(location => location._id === crawlLocation);
+    if (!event || !locationDetails) {
+      return NextResponse.json(
+        { error: 'This location is not open for registration' },
+        { status: 400 }
+      );
+    }
+    const maxCapacity = locationDetails.totalSpots;
+    
+    // One registration per person per cycle (past years' registrations don't block sign-up)
+    const activeLocationIds = activeEvents.flatMap(e => e.locations.map(location => location._id));
+    const emailPattern = new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const existingRegistration = await db.collection('registrations').findOne({
+      email: emailPattern,
+      crawlLocation: { $in: activeLocationIds },
+    });
     if (existingRegistration) {
       return NextResponse.json(
         { error: 'Email is already registered' },
         { status: 400 }
       );
     }
-    
-    // Get location details from database
-    const locationDetails = await db.collection('eventLocations').findOne({ _id: new ObjectId(crawlLocation) });
-    const maxCapacity = locationDetails?.maxCapacity || 20;
     
     // Check availability for the selected location
     const registrationsForLocation = await db.collection('registrations').countDocuments({ crawlLocation });
@@ -55,10 +69,11 @@ export async function POST(request: NextRequest) {
       firstName,
       lastName,
       school,
-      crawlDate,
+      crawlDate: event.date,
+      eventId: event._id,
       crawlLocation,
-      crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
-      crawlLocationName: locationDetails?.name || '',
+      crawlLocationAddress: locationDetails.address || '',
+      crawlLocationName: locationDetails.name || '',
       createdAt: new Date()
     };
     
@@ -74,11 +89,11 @@ export async function POST(request: NextRequest) {
     const confirmationEmail = getRegistrationConfirmationEmail({
       firstName,
       lastName,
-      crawlDate,
-      description: 'Join us for an information session and a site visit to a Referral Center and D79 site',
-      crawlLocationName: locationDetails?.name || 'Selected Location',
-      crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
-      time: '10:00 AM - 12:00 PM'
+      crawlDate: event.dateLabel,
+      description: event.description || 'Join us for an information session and a site visit to a Referral Center and D79 site',
+      crawlLocationName: locationDetails.name,
+      crawlLocationAddress: locationDetails.address || '',
+      time: event.time
     });
     
     await sendEmail({
@@ -94,11 +109,11 @@ export async function POST(request: NextRequest) {
         lastName,
         email,
         school,
-        crawlDate,
-        crawlLocation: locationDetails?.name || 'Selected Location',
-        crawlLocationName: locationDetails?.name || 'Selected Location',
-        description: 'Join us for an information session and a site visit to a Referral Center and D79 site',
-        crawlLocationAddress: crawlLocationAddress || locationDetails?.address || '',
+        crawlDate: event.dateLabel,
+        crawlLocation: locationDetails.name,
+        crawlLocationName: locationDetails.name,
+        description: event.description || 'Join us for an information session and a site visit to a Referral Center and D79 site',
+        crawlLocationAddress: locationDetails.address || '',
         availableSpots
       });
       

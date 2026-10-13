@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { getDatabase } from '@/lib/mongodb';
 import { requireAdmin } from '@/lib/auth';
+import { cycleOf, formatEventDate } from '@/lib/crawls';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,61 +10,72 @@ export async function GET(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     
     const db = await getDatabase();
+    const allEvents = await db.collection('events').find({}).sort({ date: 1, title: 1 }).toArray();
     
-    // Get all registrations
-    const registrations = await db.collection('registrations').find({}).toArray();
+    const cycles = [...new Set(allEvents.map(event => cycleOf(event.date)))]
+      .filter(cycle => !Number.isNaN(cycle))
+      .sort((a, b) => b - a);
+    const activeEvent = allEvents.find(event => event.isActive);
+    const activeCycle = activeEvent ? cycleOf(activeEvent.date) : null;
     
-    // Get all events
-    const events = await db.collection('events').find({ isActive: true }).toArray();
+    // Default to the cycle that is open for registration, else the most recent one
+    const requested = Number(request.nextUrl.searchParams.get('cycle'));
+    const cycle = cycles.includes(requested) ? requested : (activeCycle ?? cycles[0] ?? null);
     
-    // Only locations attached to active events (cloned future cycles stay out of this view)
-    const activeLocationIds = events.flatMap(event => event.locationIds || []);
-    const locations = await db.collection('eventLocations').find({ _id: { $in: activeLocationIds } }).toArray();
+    const events = allEvents.filter(event => cycleOf(event.date) === cycle);
+    const locationIds = events.flatMap(event => (event.locationIds || []) as ObjectId[]);
+    const [locations, registrations] = await Promise.all([
+      db.collection('eventLocations').find({ _id: { $in: locationIds } }).toArray(),
+      db.collection('registrations').find({ crawlLocation: { $in: locationIds.map(id => id.toString()) } }).toArray(),
+    ]);
+    const locationMap = new Map(locations.map(location => [location._id.toString(), location]));
     
-    // Create a map of location ID to event date
-    const locationToEventDate = new Map();
-    events.forEach(event => {
-      event.locationIds.forEach((locationId: { toString: () => string }) => {
-        const eventDate = event.date === '2024-10-28' ? 'Tuesday, Oct 28' : 'Thursday, Oct 30';
-        locationToEventDate.set(locationId.toString(), eventDate);
-      });
-    });
-    
-    // Calculate stats by location
-    const locationStats = locations.map(location => {
-      const locationId = location._id.toString();
-      const regs = registrations.filter(reg => reg.crawlLocation === locationId);
-      const maxCapacity = location.maxCapacity || 20;
-      
-      return {
-        _id: locationId,
-        name: location.name,
-        address: location.address,
-        eventDate: locationToEventDate.get(locationId) || 'Unknown',
-        registrationCount: regs.length,
-        maxCapacity,
-        availableSpots: Math.max(0, maxCapacity - regs.length),
-        registrations: regs.map(reg => ({
-          firstName: reg.firstName,
-          lastName: reg.lastName,
-          email: reg.email,
-          phone: reg.phone,
-          school: reg.school,
-          registeredAt: reg.createdAt
-        }))
-      };
-    });
-    
-    // Sort by event date, then by name
-    locationStats.sort((a, b) => {
-      if (a.eventDate !== b.eventDate) {
-        return a.eventDate.includes('28') ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
+    const locationStats = events.flatMap(event =>
+      ((event.locationIds || []) as ObjectId[])
+        .map(id => locationMap.get(id.toString()))
+        .filter(location => location !== undefined)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(location => {
+          const locationId = location._id.toString();
+          const regs = registrations.filter(reg => reg.crawlLocation === locationId);
+          const maxCapacity = location.maxCapacity || 20;
+          
+          return {
+            _id: locationId,
+            name: location.name,
+            address: location.address,
+            eventId: event._id.toString(),
+            eventTitle: event.title,
+            eventDate: formatEventDate(event.date, 'short'),
+            eventTime: event.time,
+            registrationCount: regs.length,
+            maxCapacity,
+            availableSpots: Math.max(0, maxCapacity - regs.length),
+            registrations: regs.map(reg => ({
+              firstName: reg.firstName,
+              lastName: reg.lastName,
+              email: reg.email,
+              phone: reg.phone,
+              school: reg.school,
+              registeredAt: reg.createdAt
+            }))
+          };
+        })
+    );
     
     return NextResponse.json({
-      totalRegistrations: registrations.length,
+      cycle,
+      cycles,
+      activeCycle,
+      events: events.map(event => ({
+        _id: event._id.toString(),
+        title: event.title,
+        date: event.date,
+        dateLabel: formatEventDate(event.date, 'short'),
+        time: event.time,
+        isActive: !!event.isActive,
+      })),
+      totalRegistrations: locationStats.reduce((sum, location) => sum + location.registrationCount, 0),
       locationStats
     });
     
@@ -74,4 +87,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
