@@ -3,13 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, MapPin, Clock, CheckCircle, AlertCircle, Mail, User, Building } from 'lucide-react';
+import {
+  ArrowLeft, CalendarDays, MapPin, Clock, CheckCircle2, AlertCircle, Mail, User, Building,
+  Check, Loader2, Phone,
+} from 'lucide-react';
 
 interface LocationAvailability {
   _id: string;
   name: string;
   address: string;
   borough?: string;
+  description?: string;
   availableSpots: number;
   totalSpots: number;
   isAvailable: boolean;
@@ -24,6 +28,22 @@ interface CrawlEvent {
   locations: LocationAvailability[];
 }
 
+interface Confirmation {
+  firstName: string;
+  email: string;
+  locationName: string;
+  address: string;
+  dateLabel: string;
+  time: string;
+}
+
+const BRAND = '#ECC67F';
+// Darker shade of the brand gold for text, which needs more contrast on light backgrounds
+const BRAND_TEXT = '#9A6B12';
+const EMAIL_DOMAIN = '@schools.nyc.gov';
+
+const EMPTY_FORM = { email: '', firstName: '', lastName: '', school: '', eventId: '', crawlLocation: '' };
+
 function boroughList(event: CrawlEvent) {
   const boroughs = [...new Set(event.locations.map(location => location.borough).filter(Boolean))] as string[];
   if (boroughs.length <= 1) return boroughs.join('');
@@ -31,18 +51,13 @@ function boroughList(event: CrawlEvent) {
 }
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    school: '',
-    eventId: '',
-    crawlLocation: ''
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [events, setEvents] = useState<CrawlEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [error, setError] = useState('');
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
+  const [emailTouched, setEmailTouched] = useState(false);
 
   useEffect(() => {
     fetchLocations();
@@ -72,336 +87,319 @@ export default function RegisterPage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-      // Changing the session clears a location picked for a different session
-      ...(name === 'eventId' ? { crawlLocation: '' } : {})
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const selectLocation = (eventId: string, locationId: string) => {
+    setFormData(prev => ({ ...prev, eventId, crawlLocation: locationId }));
+    setError('');
+  };
+
+  const selectedEvent = events.find(event => event._id === formData.eventId);
+  const selectedLocation = selectedEvent?.locations.find(location => location._id === formData.crawlLocation);
+
+  const email = formData.email.trim();
+  const isEmailValid = email.toLowerCase().endsWith(EMAIL_DOMAIN) && email.length > EMAIL_DOMAIN.length;
+  const showEmailError = (emailTouched || email.includes('@')) && email.length > 0 && !isEmailValid;
+
+  const missing = [
+    !selectedLocation && 'a location',
+    !isEmailValid && `your ${EMAIL_DOMAIN} email`,
+    !formData.firstName.trim() && 'first name',
+    !formData.lastName.trim() && 'last name',
+    !formData.school.trim() && 'school',
+  ].filter(Boolean) as string[];
+  const isFormValid = missing.length === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isFormValid || !selectedEvent || !selectedLocation) return;
     setLoading(true);
-    setMessage(null);
+    setError('');
 
     try {
       const response = await fetch('/api/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, email }),
       });
-
       const data = await response.json();
 
       if (response.ok) {
-        setMessage({ type: 'success', text: data.message });
-        setFormData({
-          email: '',
-          firstName: '',
-          lastName: '',
-          school: '',
-          eventId: '',
-          crawlLocation: ''
+        setConfirmation({
+          firstName: formData.firstName.trim(),
+          email,
+          locationName: selectedLocation.name,
+          address: selectedLocation.address,
+          dateLabel: selectedEvent.dateLabel,
+          time: selectedEvent.time,
         });
-        // Refresh availability
+        setFormData(EMPTY_FORM);
+        setEmailTouched(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         fetchLocations();
       } else {
-        setMessage({ type: 'error', text: data.error });
+        setError(data.error || 'Registration failed. Please try again.');
+        // Seats may have changed since the page loaded
+        fetchLocations();
       }
     } catch {
-      setMessage({ type: 'error', text: 'An error occurred. Please try again.' });
+      setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getLocationOptions = (eventId: string) => {
-    // Only show locations with available spots for the chosen session
-    const dateLocations = (events.find(event => event._id === eventId)?.locations || [])
-      .filter(loc => loc.isAvailable);
-    
-    return dateLocations.map(loc => ({
-      value: loc._id,
-      label: `${loc.name} - ${loc.address} (${loc.availableSpots} spots left)`,
-      address: loc.address,
-      name: loc.name
-    }));
-  };
-
-  const isEmailValid = formData.email.endsWith('@schools.nyc.gov');
-  const isFormValid = isEmailValid && formData.firstName && formData.lastName && formData.school && formData.eventId && formData.crawlLocation;
+  const inputClass = 'w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-white">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              <span>Back to Home</span>
-            </Link>
-            <div className="flex items-center space-x-4">
-              <Image
-                src="/images/d79logo.png"
-                alt="District 79 Logo"
-                width={100}
-                height={70}
-                className="object-contain"
-              />
-              <h1 className="text-xl font-bold text-gray-900">Register for D79 Crawls</h1>
-              <Image
-                src="/images/nycpublicshools.png"
-                alt="NYC Public Schools Logo"
-                width={100}
-                height={33}
-                className="object-contain"
-              />
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      {/* Header (matches the homepage) */}
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <Link href="/" aria-label="District 79 Fall Crawls home">
+            <Image src="/images/d79logo.png" alt="District 79 Logo" width={140} height={98} className="object-contain h-14 w-auto" priority />
+          </Link>
+          <Image src="/images/nycpublicshools.png" alt="NYC Public Schools Logo" width={150} height={50} className="object-contain h-12 w-auto" />
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Availability Status */}
-        {!loadingAvailability && events.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Current Availability</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              {events.map(event => {
-                const openLocations = event.locations.filter(loc => loc.isAvailable).length;
-                return (
-                  <div key={event._id} className="border-2 rounded-lg p-4" style={{borderColor: '#ECC67F'}}>
-                    <div className="flex items-center mb-2">
-                      <Calendar className="h-5 w-5 mr-2" style={{color: '#ECC67F'}} />
-                      <span className="font-semibold">{event.dateLabel}</span>
-                    </div>
-                    <div className="text-sm text-gray-600 mb-2">{boroughList(event) || event.title}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Available:</span>
-                      <span className={`font-bold ${openLocations > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {openLocations} {openLocations === 1 ? 'location' : 'locations'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <Link href="/" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Back to home
+        </Link>
 
-        {!loadingAvailability && events.length === 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center text-gray-700">
-            Registration is not open right now. Please check back soon.
-          </div>
-        )}
-
-        {/* Registration Form */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Form</h2>
-            <p className="text-gray-600">
-              Please fill out the form below to register for the D79 Fall Crawls. 
-              Only @schools.nyc.gov email addresses are accepted.
+        {confirmation ? (
+          /* Success */
+          <div className="mt-6 max-w-2xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+            <span className="inline-flex w-16 h-16 rounded-full items-center justify-center bg-green-50">
+              <CheckCircle2 className="h-9 w-9 text-green-600" />
+            </span>
+            <h1 className="mt-4 text-3xl font-bold">You&apos;re registered, {confirmation.firstName}!</h1>
+            <p className="mt-2 text-gray-600">
+              A confirmation email is on its way to <span className="font-medium text-gray-900">{confirmation.email}</span>.
             </p>
-          </div>
 
-          {message && (
-            <div className={`mb-6 p-4 rounded-lg flex items-center ${
-              message.type === 'success' 
-                ? 'bg-green-50 text-green-800 border border-green-200' 
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}>
-              {message.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 mr-2" />
-              ) : (
-                <AlertCircle className="h-5 w-5 mr-2" />
-              )}
-              {message.text}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                <Mail className="h-4 w-4 inline mr-1" />
-                Email Address *
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent ${
-                  formData.email && !isEmailValid ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="your.email@schools.nyc.gov"
-                required
-              />
-              {formData.email && !isEmailValid && (
-                <p className="mt-1 text-sm text-red-600">
-                  Only @schools.nyc.gov email addresses are accepted
-                </p>
-              )}
+            <div className="mt-6 text-left rounded-xl bg-gray-50 border border-gray-200 p-5 space-y-3">
+              <p className="font-semibold text-lg">{confirmation.locationName}</p>
+              <p className="flex items-start gap-2 text-gray-700"><CalendarDays className="h-5 w-5 mt-0.5 flex-shrink-0" style={{color: BRAND_TEXT}} />{confirmation.dateLabel}</p>
+              <p className="flex items-start gap-2 text-gray-700"><Clock className="h-5 w-5 mt-0.5 flex-shrink-0" style={{color: BRAND_TEXT}} />{confirmation.time}</p>
+              <p className="flex items-start gap-2 text-gray-700"><MapPin className="h-5 w-5 mt-0.5 flex-shrink-0" style={{color: BRAND_TEXT}} />{confirmation.address}</p>
             </div>
 
-            {/* Name Fields */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* School */}
-            <div>
-              <label htmlFor="school" className="block text-sm font-medium text-gray-700 mb-2">
-                <Building className="h-4 w-4 inline mr-1" />
-                School/Department *
-              </label>
-              <input
-                type="text"
-                id="school"
-                name="school"
-                value={formData.school}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., PS 123, District Office, etc."
-                required
-              />
-            </div>
-
-            {/* Crawl Date */}
-            <div>
-              <label htmlFor="eventId" className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="h-4 w-4 inline mr-1" />
-                Select Crawl Date *
-              </label>
-              <select
-                id="eventId"
-                name="eventId"
-                value={formData.eventId}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
+            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+              <Link href="/" className="px-6 py-3 rounded-lg font-semibold text-gray-900 hover:opacity-90" style={{backgroundColor: BRAND}}>
+                Back to home
+              </Link>
+              <button
+                onClick={() => setConfirmation(null)}
+                className="px-6 py-3 rounded-lg font-semibold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
               >
-                <option value="">Choose a date</option>
-                {events.map(event => {
-                  const isFull = event.locations.every(loc => !loc.isAvailable);
-                  const boroughs = boroughList(event);
-                  return (
-                    <option key={event._id} value={event._id} disabled={isFull}>
-                      {event.dateLabel}{boroughs ? ` (${boroughs})` : ''}{isFull ? ' - FULL' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            {/* Crawl Location */}
-            {formData.eventId && (
-              <div>
-                <label htmlFor="crawlLocation" className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="h-4 w-4 inline mr-1" />
-                  Select Location *
-                </label>
-                <select
-                  id="crawlLocation"
-                  name="crawlLocation"
-                  value={formData.crawlLocation}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Choose a location</option>
-                  {getLocationOptions(formData.eventId).map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={!isFormValid || loading}
-              className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-colors ${
-                isFormValid && !loading
-                  ? 'text-white hover:opacity-90'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              style={isFormValid && !loading ? {backgroundColor: '#ECC67F'} : {}}
-            >
-              {loading ? 'Registering...' : 'Register for Crawl'}
-            </button>
-          </form>
-
-          {/* Event Details */}
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Event Details</h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-5 w-5 mr-3" />
-                  <span>{[...new Set(events.map(event => event.time))].join(' / ') || 'To be announced'}</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Calendar className="h-5 w-5 mr-3" />
-                  <span>{[...new Set(events.map(event => event.dateLabel))].join(' & ') || 'To be announced'}</span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center text-gray-600">
-                  <MapPin className="h-5 w-5 mr-3" />
-                  <span>Various NYC Locations</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Building className="h-5 w-5 mr-3" />
-                  <span>Open to NYCPS Employees</span>
-                </div>
-              </div>
+                Register someone else
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="mt-4 mb-8">
+              <h1 className="text-3xl md:text-4xl font-bold">Reserve your spot</h1>
+              <p className="mt-2 text-gray-600">
+                District 79 Fall Crawls are open to NYCPS employees. Pick a location, then tell us who you are.
+              </p>
+            </div>
+
+            {loadingAvailability ? (
+              <div className="bg-white rounded-2xl border border-gray-200 p-10 flex items-center justify-center text-gray-500">
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Loading available locations…
+              </div>
+            ) : events.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
+                <p className="text-xl font-bold" style={{color: BRAND_TEXT}}>Registration is not open right now</p>
+                <p className="mt-2 text-gray-600">Please check back soon for the next round of District 79 crawls.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="grid lg:grid-cols-3 gap-8 items-start">
+                <div className="lg:col-span-2 space-y-8">
+                  {/* Step 1: location */}
+                  <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h2 className="flex items-center gap-3 text-xl font-bold">
+                      <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-gray-900" style={{backgroundColor: BRAND}}>1</span>
+                      Choose a location
+                    </h2>
+
+                    <div className="mt-6 space-y-8">
+                      {events.map(event => {
+                        const boroughs = boroughList(event);
+                        return (
+                          <fieldset key={event._id}>
+                            <legend className="mb-3">
+                              <span className="font-semibold">{boroughs || event.title}</span>
+                              <span className="block text-sm text-gray-500 mt-0.5">{event.dateLabel} · {event.time}</span>
+                            </legend>
+                            <div className="grid sm:grid-cols-2 gap-3">
+                              {event.locations.map(location => {
+                                const selected = formData.crawlLocation === location._id;
+                                const fewLeft = location.isAvailable && location.availableSpots <= 3;
+                                return (
+                                  <label
+                                    key={location._id}
+                                    className={`relative flex flex-col rounded-xl border-2 p-4 transition ${
+                                      !location.isAvailable
+                                        ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                                        : selected
+                                          ? 'bg-amber-50 cursor-pointer'
+                                          : 'border-gray-200 hover:border-amber-200 cursor-pointer'
+                                    }`}
+                                    style={selected ? { borderColor: BRAND } : undefined}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="crawlLocation"
+                                      value={location._id}
+                                      checked={selected}
+                                      disabled={!location.isAvailable}
+                                      onChange={() => selectLocation(event._id, location._id)}
+                                      className="sr-only"
+                                    />
+                                    {selected && (
+                                      <span className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center" style={{backgroundColor: BRAND}}>
+                                        <Check className="h-4 w-4 text-gray-900" />
+                                      </span>
+                                    )}
+                                    <span className="font-semibold pr-8">{location.name}</span>
+                                    <span className="mt-1 text-sm text-gray-600">{location.address}</span>
+                                    <span className={`mt-3 text-sm font-medium ${
+                                      !location.isAvailable ? 'text-red-600' : fewLeft ? 'text-amber-700' : 'text-green-700'
+                                    }`}>
+                                      {!location.isAvailable ? 'Full' : fewLeft
+                                        ? `Only ${location.availableSpots} ${location.availableSpots === 1 ? 'seat' : 'seats'} left`
+                                        : `${location.availableSpots} seats left`}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </fieldset>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  {/* Step 2: details */}
+                  <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h2 className="flex items-center gap-3 text-xl font-bold">
+                      <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-gray-900" style={{backgroundColor: BRAND}}>2</span>
+                      Your details
+                    </h2>
+
+                    <div className="mt-6 space-y-5">
+                      <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                          <Mail className="h-4 w-4 inline mr-1" />
+                          Work email
+                        </label>
+                        <input
+                          type="email"
+                          id="email"
+                          name="email"
+                          autoComplete="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          onBlur={() => setEmailTouched(true)}
+                          className={`${inputClass} ${showEmailError ? 'border-red-400 focus:ring-red-100' : ''}`}
+                          placeholder={`your.name${EMAIL_DOMAIN}`}
+                          aria-invalid={showEmailError}
+                          aria-describedby="email-help"
+                          required
+                        />
+                        <p id="email-help" className={`mt-1.5 text-sm ${showEmailError ? 'text-red-600' : 'text-gray-500'}`}>
+                          {showEmailError ? `Please use your ${EMAIL_DOMAIN} email address.` : `Only ${EMAIL_DOMAIN} addresses are accepted.`}
+                        </p>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-5">
+                        <div>
+                          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1.5">
+                            <User className="h-4 w-4 inline mr-1" />
+                            First name
+                          </label>
+                          <input type="text" id="firstName" name="firstName" autoComplete="given-name" value={formData.firstName} onChange={handleInputChange} className={inputClass} required />
+                        </div>
+                        <div>
+                          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">
+                            <User className="h-4 w-4 inline mr-1" />
+                            Last name
+                          </label>
+                          <input type="text" id="lastName" name="lastName" autoComplete="family-name" value={formData.lastName} onChange={handleInputChange} className={inputClass} required />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="school" className="block text-sm font-medium text-gray-700 mb-1.5">
+                          <Building className="h-4 w-4 inline mr-1" />
+                          School or department
+                        </label>
+                        <input type="text" id="school" name="school" value={formData.school} onChange={handleInputChange} className={inputClass} placeholder="e.g., PS 123, District Office" required />
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                {/* Summary */}
+                <aside className="lg:sticky lg:top-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                  <h2 className="font-bold text-lg">Your registration</h2>
+
+                  {selectedEvent && selectedLocation ? (
+                    <div className="mt-4 space-y-2.5 text-sm">
+                      <p className="font-semibold text-base">{selectedLocation.name}</p>
+                      <p className="flex items-start gap-2 text-gray-700"><CalendarDays className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: BRAND_TEXT}} />{selectedEvent.dateLabel}</p>
+                      <p className="flex items-start gap-2 text-gray-700"><Clock className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: BRAND_TEXT}} />{selectedEvent.time}</p>
+                      <p className="flex items-start gap-2 text-gray-700"><MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: BRAND_TEXT}} />{selectedLocation.address}</p>
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-gray-500 rounded-lg border border-dashed border-gray-300 p-4 text-center">
+                      Choose a location to see your session details.
+                    </p>
+                  )}
+
+                  {error && (
+                    <div className="mt-5 p-3 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200 flex items-start">
+                      <AlertCircle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={!isFormValid || loading}
+                    className="mt-6 w-full inline-flex items-center justify-center py-3.5 px-6 rounded-xl font-bold text-lg text-gray-900 transition-opacity hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    style={isFormValid && !loading ? {backgroundColor: BRAND} : undefined}
+                  >
+                    {loading && <Loader2 className="h-5 w-5 mr-2 animate-spin" />}
+                    {loading ? 'Registering…' : 'Complete registration'}
+                  </button>
+                  {!isFormValid && (
+                    <p className="mt-2 text-xs text-gray-500 text-center">Still needed: {missing.join(', ')}</p>
+                  )}
+
+                  <div className="mt-6 pt-5 border-t border-gray-100 text-sm text-gray-600 space-y-1.5">
+                    <p className="font-medium text-gray-800">Need help?</p>
+                    <a href="mailto:jjaramillo7@schools.nyc.gov" className="flex items-center gap-1.5 hover:text-gray-900">
+                      <Mail className="h-4 w-4" /> jjaramillo7@schools.nyc.gov
+                    </a>
+                    <a href="tel:+19297691001" className="flex items-center gap-1.5 hover:text-gray-900">
+                      <Phone className="h-4 w-4" /> (929) 769-1001
+                    </a>
+                  </div>
+                </aside>
+              </form>
+            )}
+          </>
+        )}
       </main>
     </div>
   );

@@ -73,7 +73,7 @@ export default async function HomePage() {
                 Register
               </Link>
             )}
-            <Image src="/images/nycpublicshools.png" alt="NYC Public Schools Logo" width={110} height={37} className="object-contain h-9 w-auto" />
+            <Image src="/images/nycpublicshools.png" alt="NYC Public Schools Logo" width={150} height={50} className="object-contain h-12 w-auto" />
           </div>
         </div>
       </header>
