@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import WaitlistForm from './WaitlistForm';
 import {
   ArrowLeft, CalendarDays, MapPin, Clock, CheckCircle2, AlertCircle, Mail, User, Building,
   Check, Loader2, Phone,
@@ -112,6 +113,7 @@ export default function RegisterPage() {
     !formData.school.trim() && 'school',
   ].filter(Boolean) as string[];
   const isFormValid = missing.length === 0;
+  const allFull = events.length > 0 && events.every(event => event.locations.every(location => !location.isAvailable));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,9 +207,11 @@ export default function RegisterPage() {
         ) : (
           <>
             <div className="mt-4 mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold">Reserve your spot</h1>
+              <h1 className="text-3xl md:text-4xl font-bold">{allFull ? 'All crawls are full' : 'Reserve your spot'}</h1>
               <p className="mt-2 text-gray-600">
-                District 79 Fall Crawls are open to NYCPS employees. Pick a location, then tell us who you are.
+                {allFull
+                  ? 'Thank you for the amazing response! Every seat is taken, but you can join the waitlist below.'
+                  : 'District 79 Fall Crawls are open to NYCPS employees. Pick a location, then tell us who you are.'}
               </p>
             </div>
 
@@ -221,7 +225,10 @@ export default function RegisterPage() {
                 <p className="text-xl font-bold" style={{color: BRAND_TEXT}}>Registration is not open right now</p>
                 <p className="mt-2 text-gray-600">Please check back soon for the next round of District 79 crawls.</p>
               </div>
+            ) : allFull ? (
+              <WaitlistForm events={events} allFull />
             ) : (
+              <>
               <form onSubmit={handleSubmit} className="grid lg:grid-cols-3 gap-8 items-start">
                 <div className="lg:col-span-2 space-y-8">
                   {/* Step 1: location */}
@@ -397,6 +404,11 @@ export default function RegisterPage() {
                   </div>
                 </aside>
               </form>
+
+              <div className="mt-10">
+                <WaitlistForm events={events} allFull={false} />
+              </div>
+              </>
             )}
           </>
         )}
