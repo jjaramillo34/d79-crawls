@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Instagram, Facebook, Twitter, Mail, Phone, MapPin, Clock, CalendarDays, ArrowRight,
-  Presentation, Building2, Handshake, BadgeCheck,
+  Presentation, Building2, Handshake, BadgeCheck, Heart,
 } from 'lucide-react';
 
 import type { ActiveCrawlEvent } from '@/lib/crawls';
@@ -165,6 +165,40 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* Thank-you note from District 79 */}
+        {isOpen && (
+          <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
+            <div className="relative overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 px-6 py-8 md:px-10 md:py-10 shadow-sm">
+              <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full opacity-30 blur-2xl pointer-events-none" style={{backgroundColor: BRAND}} />
+              <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+                <span className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 bg-white shadow-sm">
+                  <Heart className="h-7 w-7" style={{color: BRAND_TEXT}} />
+                </span>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{color: BRAND_TEXT}}>A note from District 79</p>
+                  <h2 className="mt-1 text-2xl md:text-3xl font-bold">Thank you, NYCPS colleagues!</h2>
+                  <p className="mt-3 text-gray-700">
+                    {allFull
+                      ? 'The response to this year\'s Fall Crawls has been amazing, and every seat is now taken.'
+                      : 'The response to this year\'s Fall Crawls has been amazing, and most sessions are already full.'}
+                    {' '}If your preferred location is full, please join the waitlist. We&apos;ll reach out if a seat opens up or we
+                    are able to add more space.
+                  </p>
+                  <p className="mt-3 text-gray-700 font-medium">With gratitude, the District 79 team</p>
+                </div>
+                <Link
+                  href="/register#waitlist"
+                  className="inline-flex items-center justify-center self-start md:self-center px-6 py-3 rounded-xl font-bold text-gray-900 shadow hover:opacity-90 whitespace-nowrap"
+                  style={{backgroundColor: BRAND}}
+                >
+                  Join the waitlist
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* What to expect */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h2 className="text-3xl font-bold text-center">What to expect</h2>
@@ -190,23 +224,6 @@ export default async function HomePage() {
                 Seat counts update live as people register. Location full?{' '}
                 <Link href="/register#waitlist" className="font-semibold underline" style={{color: BRAND_TEXT}}>Join the waitlist</Link>.
               </p>
-
-              {allFull && (
-                <div className="mt-8 max-w-3xl mx-auto rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
-                  <p className="text-lg font-bold" style={{color: BRAND_TEXT}}>Thank you to all NYCPS employees!</p>
-                  <p className="mt-1 text-gray-700">
-                    We are grateful for the overwhelming response. All spots are now full. We look forward to seeing everyone at the events.
-                  </p>
-                  <Link
-                    href="/register#waitlist"
-                    className="mt-4 inline-flex items-center px-6 py-3 rounded-lg font-semibold text-gray-900 hover:opacity-90"
-                    style={{backgroundColor: BRAND}}
-                  >
-                    Join the waitlist
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </div>
-              )}
 
               <div className="mt-10 space-y-12">
                 {events.map(event => {
