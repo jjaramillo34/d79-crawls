@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Lock, Eye, EyeOff, CheckCircle, LogOut, KeyRound, X, ChevronDown, Home,
-  LayoutDashboard, Users, CalendarDays, Send, FileText, RefreshCw, ListPlus,
+  LayoutDashboard, Users, CalendarDays, Send, FileText, RefreshCw, ListPlus, BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
 import CrawlSessionsPanel from './CrawlSessionsPanel';
@@ -13,10 +13,12 @@ import RegistrationsTab from './RegistrationsTab';
 import RemindersTab from './RemindersTab';
 import ReportsTab from './ReportsTab';
 import WaitlistTab from './WaitlistTab';
+import AnalyticsTab from './AnalyticsTab';
 import { BRAND, BRAND_TEXT, DashboardEvent, LocationStat } from './types';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'registrations', label: 'Registrations', icon: Users },
   { id: 'waitlist', label: 'Waitlist', icon: ListPlus },
   { id: 'sessions', label: 'Crawl Sessions', icon: CalendarDays },
@@ -286,8 +288,8 @@ export default function AdminPage() {
                 <LayoutDashboard className="h-5 w-5 text-gray-900" />
               </span>
               <div className="min-w-0">
-                <p className="font-bold text-gray-900 leading-tight">D79 Fall Crawls</p>
-                <p className="text-xs text-gray-500 leading-tight">Admin dashboard</p>
+                <p className="font-bold text-gray-900 leading-tight truncate">D79 Fall Crawls</p>
+                <p className="hidden sm:block text-xs text-gray-500 leading-tight">Admin dashboard</p>
               </div>
             </div>
 
@@ -417,6 +419,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'overview' && <OverviewTab totalRegistrations={totalRegistrations} locationStats={locationStats} events={events} />}
+        {activeTab === 'analytics' && <AnalyticsTab key={cycle ?? 'none'} cycle={cycle} onUnauthorized={handleUnauthorized} />}
         {activeTab === 'registrations' && (
           <RegistrationsTab
             key={cycle ?? 'none'}
