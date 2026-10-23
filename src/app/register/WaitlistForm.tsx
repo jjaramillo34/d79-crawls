@@ -14,6 +14,8 @@ interface WaitlistFormProps {
   events: WaitlistEvent[];
   /** True when every location is full, so the waitlist is the main way to sign up */
   allFull: boolean;
+  /** Set when someone clicks "Join waitlist" on a full location card; `at` makes repeat clicks count */
+  preferenceRequest?: { locationId: string; at: number } | null;
 }
 
 const BRAND = '#ECC67F';
@@ -21,7 +23,7 @@ const BRAND_TEXT = '#9A6B12';
 const EMAIL_DOMAIN = '@schools.nyc.gov';
 const EMPTY = { email: '', firstName: '', lastName: '', school: '', preference: 'any' };
 
-export default function WaitlistForm({ events, allFull }: WaitlistFormProps) {
+export default function WaitlistForm({ events, allFull, preferenceRequest }: WaitlistFormProps) {
   const [form, setForm] = useState(EMPTY);
   const [emailTouched, setEmailTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -35,6 +37,13 @@ export default function WaitlistForm({ events, allFull }: WaitlistFormProps) {
       setForm(prev => ({ ...prev, preference: locationId }));
     }
   }, [events]);
+
+  useEffect(() => {
+    if (preferenceRequest) {
+      setForm(prev => ({ ...prev, preference: preferenceRequest.locationId }));
+      setSuccess('');
+    }
+  }, [preferenceRequest]);
 
   const email = form.email.trim();
   const isEmailValid = email.toLowerCase().endsWith(EMAIL_DOMAIN) && email.length > EMAIL_DOMAIN.length;
