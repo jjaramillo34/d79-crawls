@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
-import { createRegistration, sendRegistrationEmails, validatePersonFields } from '@/lib/registrations';
+import { createRegistration, normalizePerson, sendRegistrationEmails, validatePersonFields } from '@/lib/registrations';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,13 +14,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const input = {
+    const input = normalizePerson({
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName,
       school: body.school,
       crawlLocation: body.crawlLocation,
-    };
+    });
 
     const db = await getDatabase();
     const result = await createRegistration(db, input);

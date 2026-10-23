@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '@/lib/mongodb';
 import { requireAdmin } from '@/lib/auth';
-import { createRegistration, sendRegistrationEmails } from '@/lib/registrations';
+import { createRegistration, normalizePerson, sendRegistrationEmails } from '@/lib/registrations';
 
 // Move someone from the waitlist into a seat (after a cancellation or a capacity increase).
 // Uses the same rules as public sign-up, and sends the normal confirmation email unless notify is false.
@@ -30,13 +30,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: `${entry.firstName} ${entry.lastName} is already registered` }, { status: 400 });
     }
 
-    const input = {
+    const input = normalizePerson({
       email: entry.email,
       firstName: entry.firstName,
       lastName: entry.lastName,
       school: entry.school,
       crawlLocation,
-    };
+    });
     const result = await createRegistration(db, input);
     if (!result.ok) {
       const error = result.error === 'No spots available for this location'

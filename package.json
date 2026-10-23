@@ -13,6 +13,7 @@
     "seed:prod:force": "NODE_ENV=production FORCE_RESET=true node scripts/seed-database.js",
     "seed:admins": "node scripts/seed-admins.js",
     "seed:admins:prod": "NODE_ENV=production node scripts/seed-admins.js",
+    "normalize:names": "node scripts/normalize-names-emails.js",
     "test:connection": "node -e \"require('dotenv').config({ path: '.env.local' }); const { MongoClient } = require('mongodb'); const client = new MongoClient(process.env.MONGODB_URI); client.connect().then(() => { console.log('\u2705 Connected to MongoDB'); client.close(); }).catch(err => { console.error('\u274c Connection failed:', err.message); });\""
   },
   "dependencies": {

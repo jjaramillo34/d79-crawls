@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
 import { cycleOf, getActiveCrawlEvents } from '@/lib/crawls';
 import { sendEmail, getWaitlistEmail } from '@/lib/email';
-import { emailPattern, findActiveRegistration, validatePersonFields } from '@/lib/registrations';
+import { emailPattern, findActiveRegistration, normalizePerson, validatePersonFields } from '@/lib/registrations';
 
 // Join the waitlist for the cycle that is open. No seat is reserved; admins register people
 // from the waitlist when a seat opens up (Admin -> Waitlist).
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
-    const email = body.email.trim();
+    const { email, firstName, lastName, school } = normalizePerson(body);
     const preference = typeof body.preference === 'string' && body.preference ? body.preference : 'any';
 
     const db = await getDatabase();
@@ -43,12 +43,7 @@ export async function POST(request: NextRequest) {
 
     const waitlist = db.collection('waitlist');
     const now = new Date();
-    const person = {
-      firstName: body.firstName.trim(),
-      lastName: body.lastName.trim(),
-      school: body.school.trim(),
-      preference,
-    };
+    const person = { firstName, lastName, school, preference };
 
     // Joining again just updates the details; the person keeps their place in line
     const existing = await waitlist.findOne({ email: emailPattern(email), cycle, status: 'waiting' });
