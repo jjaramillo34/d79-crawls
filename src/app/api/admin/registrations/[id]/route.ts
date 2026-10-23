@@ -3,6 +3,7 @@ import { Db, ObjectId } from 'mongodb';
 import { getDatabase } from '@/lib/mongodb';
 import { requireAdmin } from '@/lib/auth';
 import { cycleOf } from '@/lib/crawls';
+import { normalizeEmailAddress, toProperCaseName } from '@/lib/names';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,10 +33,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     }
 
     const body = await request.json();
-    const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : '';
-    const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : '';
+    const firstName = typeof body.firstName === 'string' ? toProperCaseName(body.firstName) : '';
+    const lastName = typeof body.lastName === 'string' ? toProperCaseName(body.lastName) : '';
     const school = typeof body.school === 'string' ? body.school.trim() : '';
-    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const email = typeof body.email === 'string' ? normalizeEmailAddress(body.email) : '';
     const crawlLocation = typeof body.crawlLocation === 'string' ? body.crawlLocation : '';
 
     if (!firstName || !lastName || !school || !email || !crawlLocation) {

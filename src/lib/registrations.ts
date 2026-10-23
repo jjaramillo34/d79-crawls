@@ -2,6 +2,7 @@ import { Db } from 'mongodb';
 import { Registration } from '@/types/registration';
 import { sendEmail, getRegistrationConfirmationEmail, getAdminNotificationEmail } from '@/lib/email';
 import { ActiveCrawlEvent, CrawlLocationAvailability, getActiveCrawlEvents } from '@/lib/crawls';
+import { normalizeEmailAddress, toProperCaseName } from '@/lib/names';
 
 export const EMAIL_DOMAIN = '@schools.nyc.gov';
 const DEFAULT_DESCRIPTION = 'Join us for an information session and a site visit to a Referral Center and D79 site';
@@ -17,6 +18,17 @@ export interface RegistrationInput {
 type CreateResult =
   | { ok: true; id: string; event: ActiveCrawlEvent; location: CrawlLocationAvailability }
   | { ok: false; status: number; error: string };
+
+/** Lowercases the email and proper-cases the names, so records look consistent however people type them. */
+export function normalizePerson<T extends { email: string; firstName: string; lastName: string; school: string }>(person: T): T {
+  return {
+    ...person,
+    email: normalizeEmailAddress(person.email),
+    firstName: toProperCaseName(person.firstName),
+    lastName: toProperCaseName(person.lastName),
+    school: person.school.trim(),
+  };
+}
 
 /** Case-insensitive exact match for an email address. */
 export function emailPattern(email: string) {
@@ -49,8 +61,9 @@ export async function findActiveRegistration(db: Db, email: string, activeEvents
  * Registers someone for a location in an open session, with the same rules everywhere:
  * the location must be open, one registration per person per cycle, and no overbooking.
  */
-export async function createRegistration(db: Db, input: RegistrationInput): Promise<CreateResult> {
-  const email = input.email.trim();
+export async function createRegistration(db: Db, rawInput: RegistrationInput): Promise<CreateResult> {
+  const input = normalizePerson(rawInput);
+  const email = input.email;
   const activeEvents = await getActiveCrawlEvents(db);
   const event = activeEvents.find(e => e.locations.some(location => location._id === input.crawlLocation));
   const location = event?.locations.find(l => l._id === input.crawlLocation);
@@ -69,9 +82,9 @@ export async function createRegistration(db: Db, input: RegistrationInput): Prom
 
   const registration: Omit<Registration, '_id'> = {
     email,
-    firstName: input.firstName.trim(),
-    lastName: input.lastName.trim(),
-    school: input.school.trim(),
+    firstName: input.firstName,
+    lastName: input.lastName,
+    school: input.school,
     crawlDate: event.date,
     eventId: event._id,
     crawlLocation: input.crawlLocation,
