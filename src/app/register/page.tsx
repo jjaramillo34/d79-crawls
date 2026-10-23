@@ -114,6 +114,18 @@ export default function RegisterPage() {
   ].filter(Boolean) as string[];
   const isFormValid = missing.length === 0;
   const allFull = events.length > 0 && events.every(event => event.locations.every(location => !location.isAvailable));
+  const fullLocations = events.flatMap(event => event.locations.filter(location => !location.isAvailable));
+  const totalLocations = events.reduce((sum, event) => sum + event.locations.length, 0);
+  const fullNames = fullLocations.map(location => location.borough || location.name);
+  const fullList = fullNames.length <= 1
+    ? fullNames.join('')
+    : `${fullNames.slice(0, -1).join(', ')} and ${fullNames[fullNames.length - 1]}`;
+
+  const [waitlistRequest, setWaitlistRequest] = useState<{ locationId: string; at: number } | null>(null);
+  const goToWaitlist = (locationId?: string) => {
+    if (locationId) setWaitlistRequest({ locationId, at: Date.now() });
+    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +227,25 @@ export default function RegisterPage() {
               </p>
             </div>
 
+            {!loadingAvailability && !allFull && fullLocations.length > 0 && (
+              <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+                <p className="text-gray-800">
+                  <span className="font-semibold">
+                    {fullLocations.length} of {totalLocations} locations are full
+                  </span>
+                  {' '}({fullList}). Want one of those? Join the waitlist at the bottom of this page.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => goToWaitlist()}
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg font-semibold text-gray-900 hover:opacity-90 whitespace-nowrap"
+                  style={{backgroundColor: BRAND}}
+                >
+                  Join the waitlist ↓
+                </button>
+              </div>
+            )}
+
             {loadingAvailability ? (
               <div className="bg-white rounded-2xl border border-gray-200 p-10 flex items-center justify-center text-gray-500">
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -256,7 +287,7 @@ export default function RegisterPage() {
                                     key={location._id}
                                     className={`relative flex flex-col rounded-xl border-2 p-4 transition ${
                                       !location.isAvailable
-                                        ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                                        ? 'border-gray-200 bg-gray-50 cursor-default'
                                         : selected
                                           ? 'bg-amber-50 cursor-pointer'
                                           : 'border-gray-200 hover:border-amber-200 cursor-pointer'
@@ -277,15 +308,27 @@ export default function RegisterPage() {
                                         <Check className="h-4 w-4 text-gray-900" />
                                       </span>
                                     )}
-                                    <span className="font-semibold pr-8">{location.name}</span>
-                                    <span className="mt-1 text-sm text-gray-600">{location.address}</span>
-                                    <span className={`mt-3 text-sm font-medium ${
-                                      !location.isAvailable ? 'text-red-600' : fewLeft ? 'text-amber-700' : 'text-green-700'
-                                    }`}>
-                                      {!location.isAvailable ? 'Full' : fewLeft
-                                        ? `Only ${location.availableSpots} ${location.availableSpots === 1 ? 'seat' : 'seats'} left`
-                                        : `${location.availableSpots} seats left`}
-                                    </span>
+                                    <span className={`font-semibold pr-8 ${location.isAvailable ? '' : 'text-gray-500'}`}>{location.name}</span>
+                                    <span className={`mt-1 text-sm ${location.isAvailable ? 'text-gray-600' : 'text-gray-400'}`}>{location.address}</span>
+                                    {location.isAvailable ? (
+                                      <span className={`mt-3 text-sm font-medium ${fewLeft ? 'text-amber-700' : 'text-green-700'}`}>
+                                        {fewLeft
+                                          ? `Only ${location.availableSpots} ${location.availableSpots === 1 ? 'seat' : 'seats'} left`
+                                          : `${location.availableSpots} seats left`}
+                                      </span>
+                                    ) : (
+                                      <span className="mt-3 flex items-center justify-between gap-2 text-sm">
+                                        <span className="font-medium text-red-600">Full</span>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.preventDefault(); goToWaitlist(location._id); }}
+                                          className="font-semibold underline hover:no-underline"
+                                          style={{color: BRAND_TEXT}}
+                                        >
+                                          Join waitlist ↓
+                                        </button>
+                                      </span>
+                                    )}
                                   </label>
                                 );
                               })}
@@ -406,7 +449,7 @@ export default function RegisterPage() {
               </form>
 
               <div className="mt-10">
-                <WaitlistForm events={events} allFull={false} />
+                <WaitlistForm events={events} allFull={false} preferenceRequest={waitlistRequest} />
               </div>
               </>
             )}
