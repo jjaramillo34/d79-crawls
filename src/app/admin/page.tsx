@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Lock, Eye, EyeOff, CheckCircle, LogOut, KeyRound, X, ChevronDown, Home,
-  LayoutDashboard, Users, CalendarDays, Send, FileText, RefreshCw,
+  LayoutDashboard, Users, CalendarDays, Send, FileText, RefreshCw, ListPlus,
 } from 'lucide-react';
 import Link from 'next/link';
 import CrawlSessionsPanel from './CrawlSessionsPanel';
@@ -12,11 +12,13 @@ import OverviewTab from './OverviewTab';
 import RegistrationsTab from './RegistrationsTab';
 import RemindersTab from './RemindersTab';
 import ReportsTab from './ReportsTab';
+import WaitlistTab from './WaitlistTab';
 import { BRAND, BRAND_TEXT, DashboardEvent, LocationStat } from './types';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'registrations', label: 'Registrations', icon: Users },
+  { id: 'waitlist', label: 'Waitlist', icon: ListPlus },
   { id: 'sessions', label: 'Crawl Sessions', icon: CalendarDays },
   { id: 'reminders', label: 'Reminders', icon: Send },
   { id: 'reports', label: 'Reports', icon: FileText },
@@ -44,6 +46,7 @@ export default function AdminPage() {
   const [cycle, setCycle] = useState<number | null>(null);
   const [cycles, setCycles] = useState<number[]>([]);
   const [activeCycle, setActiveCycle] = useState<number | null>(null);
+  const [waitlistCount, setWaitlistCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,6 +72,7 @@ export default function AdminPage() {
     setCycle(data.cycle);
     setCycles(data.cycles);
     setActiveCycle(data.activeCycle);
+    setWaitlistCount(data.waitlistCount ?? 0);
   }, [handleUnauthorized]);
 
   // Keep the selected tab in the URL hash so reloads and links land on the same tab
@@ -383,6 +387,9 @@ export default function AdminPage() {
                   {id === 'registrations' && (
                     <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{totalRegistrations}</span>
                   )}
+                  {id === 'waitlist' && waitlistCount > 0 && (
+                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold text-gray-900" style={{ backgroundColor: BRAND }}>{waitlistCount}</span>
+                  )}
                 </button>
               );
             })}
@@ -415,6 +422,16 @@ export default function AdminPage() {
             key={cycle ?? 'none'}
             locationStats={locationStats}
             events={events}
+            onChanged={() => loadDashboard(cycle)}
+            onUnauthorized={handleUnauthorized}
+          />
+        )}
+        {activeTab === 'waitlist' && (
+          <WaitlistTab
+            key={cycle ?? 'none'}
+            cycle={cycle}
+            locationStats={locationStats}
+            isOpenCycle={cycle !== null && cycle === activeCycle}
             onChanged={() => loadDashboard(cycle)}
             onUnauthorized={handleUnauthorized}
           />

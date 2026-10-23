@@ -117,9 +117,14 @@ export default async function HomePage() {
 
                 <div className="mt-10 flex flex-col sm:flex-row justify-center gap-3">
                   {allFull ? (
-                    <span className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-lg font-bold bg-gray-200 text-gray-600">
-                      All sessions are full
-                    </span>
+                    <Link
+                      href="/register#waitlist"
+                      className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-lg font-bold text-gray-900 shadow-lg hover:opacity-90 transition-opacity"
+                      style={{backgroundColor: BRAND}}
+                    >
+                      All full · Join the waitlist
+                      <ArrowRight className="h-5 w-5 ml-2" />
+                    </Link>
                   ) : (
                     <Link
                       href="/register"
@@ -181,7 +186,10 @@ export default async function HomePage() {
           <section id="locations" className="bg-gray-50 border-y border-gray-100 scroll-mt-20">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
               <h2 className="text-3xl font-bold text-center">Choose a location</h2>
-              <p className="mt-3 text-center text-gray-600">Seat counts update live as people register.</p>
+              <p className="mt-3 text-center text-gray-600">
+                Seat counts update live as people register. Location full?{' '}
+                <Link href="/register#waitlist" className="font-semibold underline" style={{color: BRAND_TEXT}}>Join the waitlist</Link>.
+              </p>
 
               {allFull && (
                 <div className="mt-8 max-w-3xl mx-auto rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
@@ -189,6 +197,14 @@ export default async function HomePage() {
                   <p className="mt-1 text-gray-700">
                     We are grateful for the overwhelming response. All spots are now full. We look forward to seeing everyone at the events.
                   </p>
+                  <Link
+                    href="/register#waitlist"
+                    className="mt-4 inline-flex items-center px-6 py-3 rounded-lg font-semibold text-gray-900 hover:opacity-90"
+                    style={{backgroundColor: BRAND}}
+                  >
+                    Join the waitlist
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
                 </div>
               )}
 
@@ -253,9 +269,12 @@ export default async function HomePage() {
                                     Register here
                                   </Link>
                                 ) : (
-                                  <span className="mt-4 inline-flex w-full items-center justify-center px-4 py-2.5 rounded-lg font-semibold bg-gray-100 text-gray-500">
-                                    No seats available
-                                  </span>
+                                  <Link
+                                    href={`/register?waitlist=${location._id}#waitlist`}
+                                    className="mt-4 inline-flex w-full items-center justify-center px-4 py-2.5 rounded-lg font-semibold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                                  >
+                                    Full · Join the waitlist
+                                  </Link>
                                 )}
                               </div>
                             </div>

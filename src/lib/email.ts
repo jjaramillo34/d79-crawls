@@ -472,3 +472,63 @@ export const getReminderEmail = (data: {
     </html>
   `;
 };
+
+const escapeHtml = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Template for "you're on the waitlist" emails (no seat is reserved)
+export const getWaitlistEmail = (data: {
+  firstName: string;
+  lastName: string;
+  preferenceLabel: string;
+}) => {
+  const firstName = escapeHtml(data.firstName);
+  const lastName = escapeHtml(data.lastName);
+  const preference = escapeHtml(data.preferenceLabel);
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #ECC67F; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { margin: 0; font-size: 26px; }
+        .content { background-color: #ffffff; padding: 30px; border: 2px solid #ECC67F; border-top: none; border-radius: 0 0 8px 8px; }
+        .info-box { background-color: #FFF8E7; border-left: 4px solid #ECC67F; padding: 15px; margin: 20px 0; }
+        .info-box p { margin: 8px 0; }
+        .info-box strong { color: #B8935E; }
+        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>📝 You're on the Waitlist</h1>
+      </div>
+      <div class="content">
+        <p>Dear ${firstName} ${lastName},</p>
+
+        <p>Thank you for your interest in the <strong>District 79 Fall Crawls</strong>! All seats are currently taken, so we've added you to the waitlist.</p>
+
+        <div class="info-box">
+          <p><strong>Preferred location:</strong> ${preference}</p>
+          <p><strong>Status:</strong> On the waitlist (no seat reserved yet)</p>
+        </div>
+
+        <p>If a seat opens up, we'll register you and send a confirmation email with the date, time and address. Please don't come to a crawl unless you receive that confirmation.</p>
+
+        <p>Questions? Contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a>.</p>
+
+        <p><strong>District 79 Team</strong><br>
+        Alternative Schools & Programs</p>
+      </div>
+
+      <div class="footer">
+        <p>District 79 - NYC Public Schools</p>
+        <p>This is an automated email. Please do not reply directly to this message.</p>
+      </div>
+    </body>
+    </html>
+  `;
+};

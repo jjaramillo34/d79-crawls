@@ -65,9 +65,12 @@ export async function GET(request: NextRequest) {
         })
     );
     
+    const waitlistCount = cycle ? await db.collection('waitlist').countDocuments({ cycle, status: 'waiting' }) : 0;
+    
     return NextResponse.json({
       cycle,
       cycles,
+      waitlistCount,
       activeCycle,
       events: events.map(event => ({
         _id: event._id.toString(),
