@@ -443,7 +443,7 @@ export default function AdminPage() {
           <CrawlSessionsPanel onUnauthorized={handleUnauthorized} onChanged={() => loadDashboard()} />
         )}
         {activeTab === 'reminders' && <RemindersTab locationStats={locationStats} events={events} onUnauthorized={handleUnauthorized} onSent={() => loadDashboard(cycle)} />}
-        {activeTab === 'reports' && <ReportsTab locationStats={locationStats} events={events} />}
+        {activeTab === 'reports' && <ReportsTab locationStats={locationStats} events={events} cycle={cycle} onUnauthorized={handleUnauthorized} />}
       </main>
 
       {showChangePassword && (

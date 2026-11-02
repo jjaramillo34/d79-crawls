@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search, Pencil, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Pencil, Trash2, CheckCircle, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { BRAND_TEXT, DashboardEvent, LocationStat, Registration } from './types';
 import EditRegistrationModal from './EditRegistrationModal';
+import { csvFilename, downloadCsv, REGISTRATION_COLUMNS, toCsv } from './csv';
 
 interface RegistrationsTabProps {
   locationStats: LocationStat[];
@@ -29,7 +30,9 @@ export default function RegistrationsTab({ locationStats, events, onChanged, onU
       ...reg,
       locationId: location._id,
       locationName: location.name,
+      locationAddress: location.address,
       eventDate: location.eventDate,
+      eventTime: location.eventTime,
       eventId: location.eventId,
     }))
   ), [locationStats]);
@@ -135,8 +138,21 @@ export default function RegistrationsTab({ locationStats, events, onChanged, onU
         </div>
       )}
 
-      <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
-        Showing {filtered.length} of {rows.length} attendees
+      <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100 flex items-center justify-between gap-3">
+        <span>Showing {filtered.length} of {rows.length} attendees</span>
+        <button
+          type="button"
+          onClick={() => downloadCsv(
+            csvFilename(filtered.length === rows.length ? 'all-registrations' : 'registrations-filtered'),
+            toCsv(filtered, REGISTRATION_COLUMNS)
+          )}
+          disabled={filtered.length === 0}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+          title="Download the attendees shown below (search and filters applied)"
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Download CSV
+        </button>
       </div>
 
       <div className="overflow-x-auto">
