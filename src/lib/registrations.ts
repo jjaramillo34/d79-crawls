@@ -61,7 +61,11 @@ export async function findActiveRegistration(db: Db, email: string, activeEvents
  * Registers someone for a location in an open session, with the same rules everywhere:
  * the location must be open, one registration per person per cycle, and no overbooking.
  */
-export async function createRegistration(db: Db, rawInput: RegistrationInput): Promise<CreateResult> {
+export async function createRegistration(
+  db: Db,
+  rawInput: RegistrationInput,
+  { ignoreDeadline = false }: { ignoreDeadline?: boolean } = {}
+): Promise<CreateResult> {
   const input = normalizePerson(rawInput);
   const email = input.email;
   const activeEvents = await getActiveCrawlEvents(db);
@@ -69,6 +73,10 @@ export async function createRegistration(db: Db, rawInput: RegistrationInput): P
   const location = event?.locations.find(l => l._id === input.crawlLocation);
   if (!event || !location) {
     return { ok: false, status: 400, error: 'This location is not open for registration' };
+  }
+  // Admins can still seat people (e.g. from the waitlist) after public sign-up closes
+  if (!event.registrationOpen && !ignoreDeadline) {
+    return { ok: false, status: 400, error: `Registration closed on ${event.registrationClosesLabel}.` };
   }
 
   if (await findActiveRegistration(db, email, activeEvents)) {

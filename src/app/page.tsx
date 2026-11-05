@@ -48,6 +48,9 @@ export default async function HomePage() {
   const seatsLeft = locations.reduce((sum, location) => sum + location.availableSpots, 0);
   const allFull = locations.length > 0 && seatsLeft === 0;
   const isOpen = events.length > 0;
+  // Public sign-up stops at each session's deadline; the page reflects it on every request
+  const registrationClosed = isOpen && events.every(event => !event.registrationOpen);
+  const closesLabel = events.find(event => event.registrationClosesLabel)?.registrationClosesLabel ?? null;
   const dates = [...new Set(events.map(event => event.date))];
   const times = [...new Set(events.map(event => event.time))];
 
@@ -64,7 +67,7 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <Image src="/images/d79logo.png" alt="District 79 Logo" width={140} height={98} className="object-contain h-14 w-auto" priority />
           <div className="flex items-center gap-4">
-            {isOpen && !allFull && (
+            {isOpen && !allFull && !registrationClosed && (
               <Link
                 href="/register"
                 className="hidden sm:inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-gray-900 hover:opacity-90"
@@ -115,8 +118,18 @@ export default async function HomePage() {
                   ))}
                 </div>
 
+                {closesLabel && (
+                  <p className="mt-5 text-sm font-semibold" style={{color: BRAND_TEXT}}>
+                    {registrationClosed ? `Registration closed ${closesLabel}` : `Registration closes ${closesLabel}`}
+                  </p>
+                )}
+
                 <div className="mt-10 flex flex-col sm:flex-row justify-center gap-3">
-                  {allFull ? (
+                  {registrationClosed ? (
+                    <span className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-lg font-bold bg-gray-200 text-gray-600">
+                      Registration is closed
+                    </span>
+                  ) : allFull ? (
                     <Link
                       href="/register#waitlist"
                       className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-lg font-bold text-gray-900 shadow-lg hover:opacity-90 transition-opacity"
@@ -178,22 +191,34 @@ export default async function HomePage() {
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{color: BRAND_TEXT}}>A note from District 79</p>
                   <h2 className="mt-1 text-2xl md:text-3xl font-bold">Thank you, NYCPS colleagues!</h2>
                   <p className="mt-3 text-gray-700">
-                    {allFull
-                      ? 'The response to this year\'s Fall Crawls has been amazing, and every seat is now taken.'
-                      : 'The response to this year\'s Fall Crawls has been amazing, and most sessions are already full.'}
-                    {' '}If your preferred location is full, please join the waitlist. We&apos;ll reach out if a seat opens up or we
-                    are able to add more space.
+                    {registrationClosed ? (
+                      <>
+                        The response to this year&apos;s Fall Crawls has been amazing. Registration closed {closesLabel}.
+                        If you&apos;re registered, we look forward to seeing you! Need to cancel? Email{' '}
+                        <a href="mailto:jjaramillo7@schools.nyc.gov" className="underline">jjaramillo7@schools.nyc.gov</a>.
+                      </>
+                    ) : (
+                      <>
+                        {allFull
+                          ? 'The response to this year\'s Fall Crawls has been amazing, and every seat is now taken.'
+                          : 'The response to this year\'s Fall Crawls has been amazing, and most sessions are already full.'}
+                        {' '}If your preferred location is full, please join the waitlist. We&apos;ll reach out if a seat opens up or we
+                        are able to add more space.
+                      </>
+                    )}
                   </p>
                   <p className="mt-3 text-gray-700 font-medium">With gratitude, the District 79 team</p>
                 </div>
-                <Link
-                  href="/register#waitlist"
-                  className="inline-flex items-center justify-center self-start md:self-center px-6 py-3 rounded-xl font-bold text-gray-900 shadow hover:opacity-90 whitespace-nowrap"
-                  style={{backgroundColor: BRAND}}
-                >
-                  Join the waitlist
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </Link>
+                {!registrationClosed && (
+                  <Link
+                    href="/register#waitlist"
+                    className="inline-flex items-center justify-center self-start md:self-center px-6 py-3 rounded-xl font-bold text-gray-900 shadow hover:opacity-90 whitespace-nowrap"
+                    style={{backgroundColor: BRAND}}
+                  >
+                    Join the waitlist
+                    <ArrowRight className="h-5 w-5 ml-2" />
+                  </Link>
+                )}
               </div>
             </div>
           </section>
@@ -277,7 +302,11 @@ export default async function HomePage() {
                                 <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                                   <div className="h-full rounded-full" style={{ width: `${percentTaken}%`, backgroundColor: location.isAvailable ? BRAND : '#DC2626' }} />
                                 </div>
-                                {location.isAvailable ? (
+                                {registrationClosed ? (
+                                  <span className="mt-4 inline-flex w-full items-center justify-center px-4 py-2.5 rounded-lg font-semibold bg-gray-100 text-gray-500">
+                                    Registration closed
+                                  </span>
+                                ) : location.isAvailable ? (
                                   <Link
                                     href={`/register?location=${location._id}`}
                                     className="mt-4 inline-flex w-full items-center justify-center px-4 py-2.5 rounded-lg font-semibold text-gray-900 hover:opacity-90"
@@ -307,7 +336,7 @@ export default async function HomePage() {
         )}
 
         {/* Closing call to action */}
-        {isOpen && !allFull && (
+        {isOpen && !allFull && !registrationClosed && (
           <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <div className="rounded-3xl px-6 py-12 text-center" style={{backgroundColor: `${BRAND}33`}}>
               <h2 className="text-3xl font-bold">Come visit District 79!</h2>
