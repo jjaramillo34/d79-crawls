@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       school: entry.school,
       crawlLocation,
     });
-    const result = await createRegistration(db, input);
+    const result = await createRegistration(db, input, { ignoreDeadline: true });
     if (!result.ok) {
       const error = result.error === 'No spots available for this location'
         ? 'No seats left at this location. Raise its capacity in Crawl Sessions → Edit, or pick another location.'

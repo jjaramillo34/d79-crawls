@@ -20,6 +20,8 @@ export default function RegistrationsTab({ locationStats, events, onChanged, onU
   const [editing, setEditing] = useState<{ registration: Registration; locationId: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Email the person that their registration was cancelled (on by default)
+  const [notifyOnCancel, setNotifyOnCancel] = useState(true);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [eventId, setEventId] = useState('all');
   const [locationId, setLocationId] = useState('all');
@@ -58,15 +60,18 @@ export default function RegistrationsTab({ locationStats, events, onChanged, onU
     setDeleting(true);
     setNotice(null);
     try {
-      const response = await fetch(`/api/admin/registrations/${registration._id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/admin/registrations/${registration._id}?notify=${notifyOnCancel ? '1' : '0'}`, { method: 'DELETE' });
       if (response.status === 401) return onUnauthorized();
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to delete registration');
+      if (!response.ok) throw new Error(data.error || 'Failed to cancel registration');
       setConfirmDelete(null);
-      setNotice({ type: 'success', text: `Deleted registration for ${registration.firstName} ${registration.lastName}` });
+      setNotice({
+        type: 'success',
+        text: `Cancelled ${registration.firstName} ${registration.lastName}'s registration${data.notified ? ' and emailed them' : ''}. The seat is free; see the Waitlist tab to fill it.`,
+      });
       await onChanged();
     } catch (error) {
-      setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Failed to delete registration' });
+      setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Failed to cancel registration' });
     } finally {
       setDeleting(false);
     }
@@ -184,14 +189,18 @@ export default function RegistrationsTab({ locationStats, events, onChanged, onU
                 </td>
                 <td className="py-3 px-4 text-right whitespace-nowrap">
                   {confirmDelete === row._id ? (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="text-xs text-gray-600">Delete?</span>
+                    <span className="inline-flex items-center gap-2 flex-wrap justify-end">
+                      <span className="text-xs text-gray-600">Cancel registration?</span>
+                      <label className="inline-flex items-center gap-1 text-xs text-gray-600">
+                        <input type="checkbox" checked={notifyOnCancel} onChange={(e) => setNotifyOnCancel(e.target.checked)} />
+                        Email them
+                      </label>
                       <button
                         onClick={() => handleDelete(row)}
                         disabled={deleting}
                         className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
                       >
-                        {deleting ? 'Deleting…' : 'Yes'}
+                        {deleting ? 'Cancelling…' : 'Yes, cancel'}
                       </button>
                       <button
                         onClick={() => setConfirmDelete(null)}
@@ -213,8 +222,8 @@ export default function RegistrationsTab({ locationStats, events, onChanged, onU
                       <button
                         onClick={() => { setNotice(null); setConfirmDelete(row._id); }}
                         className="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600"
-                        title="Delete registration"
-                        aria-label={`Delete registration for ${row.firstName} ${row.lastName}`}
+                        title="Cancel registration"
+                        aria-label={`Cancel registration for ${row.firstName} ${row.lastName}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

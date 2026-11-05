@@ -26,6 +26,8 @@ interface CrawlEvent {
   date: string;
   dateLabel: string;
   time: string;
+  registrationOpen: boolean;
+  registrationClosesLabel: string | null;
   locations: LocationAvailability[];
 }
 
@@ -114,6 +116,8 @@ export default function RegisterPage() {
   ].filter(Boolean) as string[];
   const isFormValid = missing.length === 0;
   const allFull = events.length > 0 && events.every(event => event.locations.every(location => !location.isAvailable));
+  const registrationClosed = events.length > 0 && events.every(event => !event.registrationOpen);
+  const closesLabel = events.find(event => event.registrationClosesLabel)?.registrationClosesLabel ?? null;
   const fullLocations = events.flatMap(event => event.locations.filter(location => !location.isAvailable));
   const totalLocations = events.reduce((sum, event) => sum + event.locations.length, 0);
   const fullNames = fullLocations.map(location => location.borough || location.name);
@@ -215,19 +219,32 @@ export default function RegisterPage() {
                 Register someone else
               </button>
             </div>
+            <p className="mt-6 text-sm text-gray-500">
+              Plans change? You can <Link href="/cancel" className="underline">cancel your registration</Link> anytime.
+            </p>
           </div>
         ) : (
           <>
             <div className="mt-4 mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold">{allFull ? 'All crawls are full' : 'Reserve your spot'}</h1>
+              <h1 className="text-3xl md:text-4xl font-bold">
+                {registrationClosed ? 'Registration is closed' : allFull ? 'All crawls are full' : 'Reserve your spot'}
+              </h1>
               <p className="mt-2 text-gray-600">
-                {allFull
-                  ? 'Thank you for the amazing response! Every seat is taken, but you can join the waitlist below.'
-                  : 'District 79 Fall Crawls are open to NYCPS employees. Pick a location, then tell us who you are.'}
+                {registrationClosed
+                  ? `Registration closed on ${closesLabel}. Thank you for the amazing response!`
+                  : allFull
+                    ? 'Thank you for the amazing response! Every seat is taken, but you can join the waitlist below.'
+                    : 'District 79 Fall Crawls are open to NYCPS employees. Pick a location, then tell us who you are.'}
               </p>
+              {!registrationClosed && closesLabel && (
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white border border-amber-200 px-3 py-1 text-sm font-medium" style={{color: BRAND_TEXT}}>
+                  <Clock className="h-4 w-4" />
+                  Registration closes {closesLabel}
+                </p>
+              )}
             </div>
 
-            {!loadingAvailability && !allFull && fullLocations.length > 0 && (
+            {!loadingAvailability && !registrationClosed && !allFull && fullLocations.length > 0 && (
               <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
                 <p className="text-gray-800">
                   <span className="font-semibold">
@@ -255,6 +272,17 @@ export default function RegisterPage() {
               <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
                 <p className="text-xl font-bold" style={{color: BRAND_TEXT}}>Registration is not open right now</p>
                 <p className="mt-2 text-gray-600">Please check back soon for the next round of District 79 crawls.</p>
+              </div>
+            ) : registrationClosed ? (
+              <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
+                <p className="text-xl font-bold" style={{color: BRAND_TEXT}}>Registration is closed</p>
+                <p className="mt-2 text-gray-600">
+                  Registration and the waitlist closed on {closesLabel}. If you&apos;re registered, we look forward to seeing you!
+                </p>
+                <p className="mt-2 text-gray-600">
+                  Can&apos;t make it? <Link href="/cancel" className="underline font-semibold">Cancel your registration</Link>.
+                  Questions? Email <a href="mailto:jjaramillo7@schools.nyc.gov" className="underline">jjaramillo7@schools.nyc.gov</a>.
+                </p>
               </div>
             ) : allFull ? (
               <WaitlistForm events={events} allFull />

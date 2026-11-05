@@ -4,6 +4,7 @@ import { getDatabase } from '@/lib/mongodb';
 import { requireAdmin } from '@/lib/auth';
 import { cycleOf } from '@/lib/crawls';
 import { normalizeEmailAddress, toProperCaseName } from '@/lib/names';
+import { cancelRegistration } from '@/lib/cancellations';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -120,14 +121,16 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Invalid registration id' }, { status: 400 });
     }
 
+    // ?notify=1 emails the person that their registration was cancelled
+    const notify = request.nextUrl.searchParams.get('notify') === '1';
     const db = await getDatabase();
-    const result = await db.collection('registrations').findOneAndDelete({ _id: new ObjectId(id) });
+    const result = await cancelRegistration(db, new ObjectId(id), { cancelledBy: auth.email, notify });
     if (!result) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
-    console.log(`Registration ${id} (${result.email}) deleted by ${auth.email}`);
-    return NextResponse.json({ success: true });
+    console.log(`Registration ${id} (${result.email}) cancelled by ${auth.email}${notify ? ', email sent' : ''}`);
+    return NextResponse.json({ success: true, notified: notify });
 
   } catch (error) {
     console.error('Error deleting registration:', error);

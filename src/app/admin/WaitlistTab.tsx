@@ -31,6 +31,7 @@ interface WaitlistTabProps {
 export default function WaitlistTab({ cycle, locationStats, isOpenCycle, onChanged, onUnauthorized }: WaitlistTabProps) {
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [byPreference, setByPreference] = useState<{ label: string; count: number }[]>([]);
+  const [cancellations, setCancellations] = useState<{ name: string; locationName: string; cancelledAt: string; byAttendee: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [showRegistered, setShowRegistered] = useState(false);
@@ -47,6 +48,7 @@ export default function WaitlistTab({ cycle, locationStats, isOpenCycle, onChang
       if (!response.ok) throw new Error(data.error || 'Failed to load waitlist');
       setEntries(data.entries);
       setByPreference(data.byPreference);
+      setCancellations(data.recentCancellations ?? []);
     } catch (error) {
       setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Failed to load waitlist' });
     } finally {
@@ -117,6 +119,23 @@ export default function WaitlistTab({ cycle, locationStats, isOpenCycle, onChang
           )}
         </div>
       </div>
+
+      {cancellations.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <p className="text-sm font-semibold text-gray-900">Recent cancellations</p>
+          <p className="text-xs text-gray-500 mb-3">Each one freed a seat. Register someone below to fill it.</p>
+          <ul className="divide-y divide-gray-100 text-sm">
+            {cancellations.map((c, i) => (
+              <li key={i} className="py-2 flex flex-wrap justify-between gap-2">
+                <span className="text-gray-900">{c.name} · <span className="text-gray-600">{c.locationName}</span></span>
+                <span className="text-gray-500">
+                  {c.byAttendee ? 'Cancelled by attendee' : 'Cancelled by admin'} · {new Date(c.cancelledAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row gap-3 md:items-center">

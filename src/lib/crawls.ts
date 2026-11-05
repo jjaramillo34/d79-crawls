@@ -57,7 +57,18 @@ export interface ActiveCrawlEvent {
   dateLabel: string;
   time: string;
   description?: string;
+  /** When public sign-up for this session stops (ISO), or null if it stays open while active */
+  registrationClosesAt: string | null;
+  registrationClosesLabel: string | null;
+  registrationOpen: boolean;
   locations: CrawlLocationAvailability[];
+}
+
+/** "Thursday, November 5 at 4:00 PM" in New York time. */
+export function formatDeadline(date: Date) {
+  const day = date.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' });
+  const time = date.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
+  return `${day} at ${time}`;
 }
 
 /** Active sessions (sorted by date) with their locations and live seat counts. */
@@ -76,6 +87,7 @@ export async function getActiveCrawlEvents(db: Db): Promise<ActiveCrawlEvent[]> 
   const locationMap = new Map(locations.map(location => [location._id.toString(), location]));
   const countMap = new Map(counts.map(row => [String(row._id), row.count]));
 
+  const now = new Date();
   return events.map(event => ({
     _id: event._id.toString(),
     title: event.title,
@@ -83,6 +95,10 @@ export async function getActiveCrawlEvents(db: Db): Promise<ActiveCrawlEvent[]> 
     dateLabel: formatEventDate(event.date),
     time: event.time,
     description: event.description,
+    registrationClosesAt: event.registrationClosesAt ? new Date(event.registrationClosesAt).toISOString() : null,
+    registrationClosesLabel: event.registrationClosesAt ? formatDeadline(new Date(event.registrationClosesAt)) : null,
+    // Checked on every request, so sign-up closes at the deadline with no scheduled job
+    registrationOpen: !event.registrationClosesAt || now < new Date(event.registrationClosesAt),
     locations: ((event.locationIds || []) as ObjectId[])
       .map(id => locationMap.get(id.toString()))
       .filter(location => location !== undefined)

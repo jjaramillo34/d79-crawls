@@ -23,6 +23,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Registration is not open right now' }, { status: 400 });
     }
     const cycle = cycleOf(activeEvents[0].date);
+    if (activeEvents.every(event => !event.registrationOpen)) {
+      return NextResponse.json(
+        { error: `Registration and the waitlist closed on ${activeEvents[0].registrationClosesLabel}.` },
+        { status: 400 }
+      );
+    }
 
     let preferenceLabel = 'Any location';
     if (preference !== 'any') {
