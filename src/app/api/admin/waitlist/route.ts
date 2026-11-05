@@ -44,6 +44,12 @@ export async function GET(request: NextRequest) {
       registeredLocationName: entry.registeredLocationName ?? null,
     }));
 
+    const cancellations = await db.collection('cancellations')
+      .find({ cycle }, { projection: { firstName: 1, lastName: 1, locationName: 1, cancelledAt: 1, cancelledBy: 1 } })
+      .sort({ cancelledAt: -1 })
+      .limit(20)
+      .toArray();
+
     const counts = new Map<string, number>();
     for (const entry of result.filter(e => e.status === 'waiting')) {
       counts.set(entry.preferenceLabel, (counts.get(entry.preferenceLabel) || 0) + 1);
@@ -52,6 +58,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       cycle,
       entries: result,
+      recentCancellations: cancellations.map(c => ({
+        name: `${c.firstName} ${c.lastName}`,
+        locationName: c.locationName,
+        cancelledAt: c.cancelledAt,
+        byAttendee: c.cancelledBy === 'self',
+      })),
       byPreference: [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count),
     });
 

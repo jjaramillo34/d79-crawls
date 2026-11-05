@@ -42,6 +42,10 @@ const sendViaPowerAutomate = async ({ to, subject, html }: EmailOptions) => {
   return { success: true, messageId: response.headers.get('x-ms-workflow-run-id') ?? undefined };
 };
 
+// Public site, used for links in emails (e.g. the self-service cancellation page)
+const SITE_URL = (process.env.SITE_URL || 'https://www.d79crawls.school').replace(/\/$/, '');
+const CANCEL_URL = `${SITE_URL}/cancel`;
+
 // Send email function - supports Power Automate, SendGrid and SMTP
 export const sendEmail = async ({ to, subject, html }: EmailOptions) => {
   try {
@@ -202,8 +206,8 @@ export const getRegistrationConfirmationEmail = (data: {
           <li>Dress comfortably for the site visit</li>
         </ul>
         
-        <p>If you need to cancel or have any questions, please contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a>.        
-        </p>
+        <p><strong>Can't make it?</strong> Please <a href="${CANCEL_URL}">cancel your registration</a> so your seat can go to someone on the waitlist.</p>
+        <p>Questions? Contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a>.</p>
         
         <p>We look forward to seeing you!</p>
         
@@ -455,8 +459,8 @@ export const getReminderEmail = (data: {
           <li>Networking opportunity with other NYCPS employees</li>
         </ul>
         
-        <p><strong>Need to cancel or have questions?</strong><br>
-        Contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a></p>
+        <p><strong>Can't make it?</strong> Please <a href="${CANCEL_URL}">cancel your registration</a> so your seat can go to someone on the waitlist.<br>
+        Questions? Contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a></p>
         
         <p>We're excited to see you soon!</p>
         
@@ -532,3 +536,67 @@ export const getWaitlistEmail = (data: {
     </html>
   `;
 };
+
+const simpleEmailShell = (title: string, body: string) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #ECC67F; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { margin: 0; font-size: 26px; }
+        .content { background-color: #ffffff; padding: 30px; border: 2px solid #ECC67F; border-top: none; border-radius: 0 0 8px 8px; }
+        .info-box { background-color: #FFF8E7; border-left: 4px solid #ECC67F; padding: 15px; margin: 20px 0; }
+        .info-box p { margin: 8px 0; }
+        .info-box strong { color: #B8935E; }
+        .button { display: inline-block; background-color: #B07D1A; color: #ffffff !important; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="header"><h1>${title}</h1></div>
+      <div class="content">
+        ${body}
+        <p><strong>District 79 Team</strong><br>Alternative Schools & Programs</p>
+      </div>
+      <div class="footer">
+        <p>District 79 - NYC Public Schools</p>
+        <p>This is an automated email. Please do not reply directly to this message.</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+interface CancellationDetails {
+  firstName: string;
+  lastName: string;
+  dateLabel: string;
+  time: string;
+  locationName: string;
+}
+
+const detailsBox = (data: CancellationDetails) => `
+        <div class="info-box">
+          <p><strong>Date:</strong> ${escapeHtml(data.dateLabel)}</p>
+          <p><strong>Time:</strong> ${escapeHtml(data.time)}</p>
+          <p><strong>Location:</strong> ${escapeHtml(data.locationName)}</p>
+        </div>`;
+
+// Sent when someone asks to cancel on the website: they must click the link to confirm
+export const getCancellationLinkEmail = (data: CancellationDetails & { link: string }) =>
+  simpleEmailShell('Confirm your cancellation', `
+        <p>Dear ${escapeHtml(data.firstName)} ${escapeHtml(data.lastName)},</p>
+        <p>We received a request to cancel your registration for the <strong>District 79 Fall Crawls</strong>:</p>
+        ${detailsBox(data)}
+        <p>To cancel, click the button below and confirm. The link works once and expires in 48 hours.</p>
+        <p style="text-align:center; margin: 28px 0;"><a class="button" href="${encodeURI(data.link)}">Cancel my registration</a></p>
+        <p>If you didn't ask to cancel, you can ignore this email and your seat stays reserved.</p>`);
+
+// Sent once a registration has been cancelled (by the attendee or an admin)
+export const getCancellationConfirmedEmail = (data: CancellationDetails) =>
+  simpleEmailShell('Registration cancelled', `
+        <p>Dear ${escapeHtml(data.firstName)} ${escapeHtml(data.lastName)},</p>
+        <p>Your registration for the <strong>District 79 Fall Crawls</strong> has been cancelled, and your seat has been released to someone on the waitlist.</p>
+        ${detailsBox(data)}
+        <p>If this was a mistake, or you have questions, contact us at <a href="mailto:jjaramillo7@schools.nyc.gov">jjaramillo7@schools.nyc.gov</a> or <a href="mailto:soliger@schools.nyc.gov">soliger@schools.nyc.gov</a>.</p>`);

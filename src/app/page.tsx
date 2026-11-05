@@ -194,8 +194,8 @@ export default async function HomePage() {
                     {registrationClosed ? (
                       <>
                         The response to this year&apos;s Fall Crawls has been amazing. Registration closed {closesLabel}.
-                        If you&apos;re registered, we look forward to seeing you! Need to cancel? Email{' '}
-                        <a href="mailto:jjaramillo7@schools.nyc.gov" className="underline">jjaramillo7@schools.nyc.gov</a>.
+                        If you&apos;re registered, we look forward to seeing you! Can&apos;t make it?{' '}
+                        <Link href="/cancel" className="underline font-semibold">Cancel your registration</Link> so your seat goes to someone on the waitlist.
                       </>
                     ) : (
                       <>

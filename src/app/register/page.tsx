@@ -219,6 +219,9 @@ export default function RegisterPage() {
                 Register someone else
               </button>
             </div>
+            <p className="mt-6 text-sm text-gray-500">
+              Plans change? You can <Link href="/cancel" className="underline">cancel your registration</Link> anytime.
+            </p>
           </div>
         ) : (
           <>
@@ -277,7 +280,8 @@ export default function RegisterPage() {
                   Registration and the waitlist closed on {closesLabel}. If you&apos;re registered, we look forward to seeing you!
                 </p>
                 <p className="mt-2 text-gray-600">
-                  Questions or need to cancel? Email <a href="mailto:jjaramillo7@schools.nyc.gov" className="underline">jjaramillo7@schools.nyc.gov</a>.
+                  Can&apos;t make it? <Link href="/cancel" className="underline font-semibold">Cancel your registration</Link>.
+                  Questions? Email <a href="mailto:jjaramillo7@schools.nyc.gov" className="underline">jjaramillo7@schools.nyc.gov</a>.
                 </p>
               </div>
             ) : allFull ? (
